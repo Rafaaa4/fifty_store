@@ -139,6 +139,28 @@ export async function sendContactMessage(form: {
   });
 }
 
+export async function createRepairRequest(form: {
+  serviceType: string;
+  deviceBrand: string;
+  deviceModel: string;
+  issueDescription: string;
+  deliveryMode: string;
+  preferredDate: string;
+  preferredTime: string;
+  customer: {
+    fullName: string;
+    phone: string;
+    city: string;
+    address: string;
+    notes: string;
+  };
+}) {
+  return request<{ repair: { id: number } }>('/repairs', {
+    method: 'POST',
+    body: JSON.stringify(form),
+  });
+}
+
 export async function fetchProducts() {
   const data = await request<{ products: Product[] }>('/products');
   return {

@@ -61,6 +61,38 @@ export interface Product {
   isBestSeller: boolean;
 }
 
+export type RepairStatus =
+  | 'requested'
+  | 'appointment_set'
+  | 'pickup_scheduled'
+  | 'picked_up'
+  | 'in_repair'
+  | 'ready'
+  | 'returned'
+  | 'cancelled';
+
+export interface RepairRequest {
+  id: number;
+  customer_id: number | null;
+  service_type: string;
+  device_brand: string;
+  device_model: string;
+  issue_description: string;
+  delivery_mode: string;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  customer_name: string;
+  phone: string;
+  city: string;
+  address: string;
+  notes: string;
+  status: RepairStatus;
+  admin_notes: string;
+  created_at: string;
+  account_name: string | null;
+  account_email: string | null;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers = new Headers(options.headers);
@@ -178,4 +210,16 @@ export async function updateAdminProduct(id: number, formData: FormData) {
 
 export async function deleteAdminProduct(id: number) {
   return request<{ product: Product }>(`/admin/products/${id}`, { method: 'DELETE' });
+}
+
+export async function fetchAdminRepairs(status?: RepairStatus | 'all') {
+  const query = status && status !== 'all' ? `?status=${status}` : '';
+  return request<{ repairs: RepairRequest[] }>(`/admin/repairs${query}`);
+}
+
+export async function updateRepairStatus(id: number, status: RepairStatus, adminNotes = '') {
+  return request<{ repair: RepairRequest }>(`/admin/repairs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, adminNotes }),
+  });
 }

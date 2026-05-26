@@ -39,6 +39,7 @@ export default function Navbar() {
   const navLinks = [
     { label: 'Accueil', page: 'home' as const },
     { label: 'Boutique', page: 'shop' as const },
+    { label: 'Réparation', page: 'repair' as const },
     { label: 'Contact', page: 'contact' as const },
   ];
 

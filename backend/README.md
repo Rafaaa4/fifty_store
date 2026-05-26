@@ -43,11 +43,15 @@ The server creates the tables automatically and seeds the first admin from `ADMI
 - `POST /api/customer/login` logs in a customer.
 - `GET /api/customer/orders` lists the logged-in customer's orders.
 - `POST /api/contact` stores a contact message.
+- `POST /api/repairs` creates a phone repair request.
+- `GET /api/repairs/mine` lists the logged-in customer's repair requests.
 - `GET /api/products` lists products from the database.
 - `GET /api/admin/orders` lists orders for the dashboard.
 - `PATCH /api/admin/orders/:id/status` updates order status.
 - `GET /api/admin/contacts` lists contact messages.
 - `PATCH /api/admin/contacts/:id/read` marks a message as read.
+- `GET /api/admin/repairs` lists repair requests.
+- `PATCH /api/admin/repairs/:id/status` updates a repair request workflow status.
 - `GET /api/admin/products` lists products for the dashboard.
 - `POST /api/admin/products` creates a product with an uploaded image.
 - `PUT /api/admin/products/:id` edits a product, with optional new image upload.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2, Image, LogOut, Mail, MessageSquare, PackageCheck,
-  Pencil, Plus, RefreshCcw, Shield, Trash2, Truck, XCircle
+  Pencil, Plus, RefreshCcw, Shield, Trash2, Truck, Wrench, XCircle
 } from 'lucide-react';
 import {
   clearAdminToken,
@@ -11,14 +11,18 @@ import {
   fetchAdminContacts,
   fetchAdminOrders,
   fetchAdminProducts,
+  fetchAdminRepairs,
   getAdminToken,
   loginAdmin,
   markContactRead,
   Order,
   OrderStatus,
   Product,
+  RepairRequest,
+  RepairStatus,
   updateAdminProduct,
   updateOrderStatus,
+  updateRepairStatus,
 } from './lib/api';
 
 const statuses: { value: OrderStatus | 'all'; label: string }[] = [
@@ -37,12 +41,38 @@ const nextActions: { status: OrderStatus; label: string; icon: typeof CheckCircl
   { status: 'cancelled', label: 'Annuler', icon: XCircle },
 ];
 
+const repairStatuses: { value: RepairStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'Toutes' },
+  { value: 'requested', label: 'Demandées' },
+  { value: 'appointment_set', label: 'Rendez-vous' },
+  { value: 'pickup_scheduled', label: 'Pickup prévu' },
+  { value: 'picked_up', label: 'Récupérées' },
+  { value: 'in_repair', label: 'En atelier' },
+  { value: 'ready', label: 'Prêtes' },
+  { value: 'returned', label: 'Retournées' },
+  { value: 'cancelled', label: 'Annulées' },
+];
+
+const repairActions: { status: RepairStatus; label: string; icon: typeof CheckCircle2 }[] = [
+  { status: 'appointment_set', label: 'RDV fixé', icon: CheckCircle2 },
+  { status: 'pickup_scheduled', label: 'Pickup prévu', icon: Truck },
+  { status: 'picked_up', label: 'Colis récupéré', icon: PackageCheck },
+  { status: 'in_repair', label: 'En atelier', icon: Wrench },
+  { status: 'ready', label: 'Prête', icon: CheckCircle2 },
+  { status: 'returned', label: 'Retournée', icon: PackageCheck },
+  { status: 'cancelled', label: 'Annuler', icon: XCircle },
+];
+
 function money(value: string | number) {
   return `${Number(value).toLocaleString()} TND`;
 }
 
 function statusLabel(status: OrderStatus) {
   return statuses.find((item) => item.value === status)?.label || status;
+}
+
+function repairStatusLabel(status: RepairStatus) {
+  return repairStatuses.find((item) => item.value === status)?.label || status;
 }
 
 const emptyProductForm = {
@@ -66,8 +96,10 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [contacts, setContacts] = useState<ContactMessage[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [view, setView] = useState<'orders' | 'contacts' | 'products'>('orders');
+  const [repairs, setRepairs] = useState<RepairRequest[]>([]);
+  const [view, setView] = useState<'orders' | 'contacts' | 'products' | 'repairs'>('orders');
   const [status, setStatus] = useState<OrderStatus | 'all'>('all');
+  const [repairStatus, setRepairStatus] = useState<RepairStatus | 'all'>('all');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingId, setIsSavingId] = useState<number | null>(null);
@@ -89,6 +121,7 @@ export default function App() {
   }, [orders]);
 
   const unreadContacts = contacts.filter((message) => message.status === 'new').length;
+  const activeRepairs = repairs.filter((repair) => !['returned', 'cancelled'].includes(repair.status)).length;
 
   const loadOrders = useCallback(async () => {
     setError('');
@@ -133,17 +166,32 @@ export default function App() {
     }
   }, []);
 
+  const loadRepairs = useCallback(async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const data = await fetchAdminRepairs(repairStatus);
+      setRepairs(data.repairs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de charger les réparations.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [repairStatus]);
+
   useEffect(() => {
     if (isAuthenticated) {
       if (view === 'orders') {
         loadOrders();
       } else if (view === 'contacts') {
         loadContacts();
-      } else {
+      } else if (view === 'products') {
         loadProducts();
+      } else {
+        loadRepairs();
       }
     }
-  }, [isAuthenticated, loadContacts, loadOrders, loadProducts, view]);
+  }, [isAuthenticated, loadContacts, loadOrders, loadProducts, loadRepairs, view]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -256,12 +304,26 @@ export default function App() {
     }
   };
 
+  const handleRepairStatus = async (repairId: number, nextStatus: RepairStatus) => {
+    setError('');
+    setIsSavingId(repairId);
+    try {
+      const data = await updateRepairStatus(repairId, nextStatus);
+      setRepairs((current) => current.map((repair) => (repair.id === repairId ? data.repair : repair)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mise à jour réparation impossible.');
+    } finally {
+      setIsSavingId(null);
+    }
+  };
+
   const logout = () => {
     clearAdminToken();
     setIsAuthenticated(false);
     setOrders([]);
     setContacts([]);
     setProducts([]);
+    setRepairs([]);
   };
 
   if (!isAuthenticated) {
@@ -323,7 +385,7 @@ export default function App() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={view === 'orders' ? loadOrders : view === 'contacts' ? loadContacts : loadProducts}
+              onClick={view === 'orders' ? loadOrders : view === 'contacts' ? loadContacts : view === 'products' ? loadProducts : loadRepairs}
               disabled={isLoading}
               className="px-4 py-3 bg-gray-900 border border-gray-800 text-gray-200 rounded-xl hover:border-gray-700 transition-colors flex items-center gap-2"
             >
@@ -369,6 +431,16 @@ export default function App() {
             <Image size={16} />
             Produits
           </button>
+          <button
+            onClick={() => setView('repairs')}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 ${
+              view === 'repairs' ? 'bg-blue-600 text-white' : 'bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700'
+            }`}
+          >
+            <Wrench size={16} />
+            Réparations
+            {activeRepairs > 0 && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs text-white">{activeRepairs}</span>}
+          </button>
         </div>
 
         {view === 'orders' && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -397,6 +469,22 @@ export default function App() {
               onClick={() => setStatus(item.value)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                 status === item.value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>}
+
+        {view === 'repairs' && <div className="flex flex-wrap gap-2 mb-6">
+          {repairStatuses.map((item) => (
+            <button
+              key={item.value}
+              onClick={() => setRepairStatus(item.value)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                repairStatus === item.value
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700'
               }`}
@@ -534,7 +622,7 @@ export default function App() {
               </table>
             </div>
           </div>
-        ) : (
+        ) : view === 'products' ? (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <form onSubmit={handleCreateProduct} className="xl:col-span-1 bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between gap-3">
@@ -695,6 +783,67 @@ export default function App() {
                 </table>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {repairs.map((repair) => (
+              <div key={repair.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h2 className="text-white font-black text-xl">Réparation #{repair.id}</h2>
+                      <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-200 border border-blue-500/20 text-xs font-bold">
+                        {repairStatusLabel(repair.status)}
+                      </span>
+                      <span className="text-gray-500 text-sm">{new Date(repair.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="text-gray-300 font-semibold">{repair.customer_name} · {repair.phone}</p>
+                    <p className="text-gray-500 text-sm mt-1">{repair.address}, {repair.city}</p>
+                    {repair.account_name && <p className="text-blue-300 text-xs mt-1">Compte: {repair.account_name}</p>}
+                  </div>
+                  <div className="lg:text-right">
+                    <p className="text-white font-bold">{repair.device_brand} {repair.device_model}</p>
+                    <p className="text-gray-500 text-sm">{repair.service_type} · {repair.delivery_mode}</p>
+                    {(repair.preferred_date || repair.preferred_time) && (
+                      <p className="text-gray-400 text-sm mt-1">{repair.preferred_date || ''} {repair.preferred_time || ''}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-gray-950/50 border border-gray-800 rounded-xl p-4">
+                    <p className="text-gray-500 mb-1">Panne</p>
+                    <p className="text-gray-200 whitespace-pre-wrap">{repair.issue_description}</p>
+                  </div>
+                  <div className="bg-gray-950/50 border border-gray-800 rounded-xl p-4">
+                    <p className="text-gray-500 mb-1">Notes</p>
+                    <p className="text-gray-200 whitespace-pre-wrap">{repair.notes || repair.admin_notes || 'Aucune note'}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-5">
+                  {repairActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.status}
+                        onClick={() => handleRepairStatus(repair.id, action.status)}
+                        disabled={isSavingId === repair.id || repair.status === action.status}
+                        className="px-3 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-100 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"
+                      >
+                        <Icon size={15} />
+                        {action.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {!isLoading && repairs.length === 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center text-gray-400">
+                Aucune demande réparation pour ce filtre.
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -81,6 +81,28 @@ export async function migrate() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS repair_requests (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+      service_type TEXT NOT NULL,
+      device_brand TEXT NOT NULL,
+      device_model TEXT NOT NULL,
+      issue_description TEXT NOT NULL,
+      delivery_mode TEXT NOT NULL CHECK (delivery_mode IN ('courier_pickup', 'store_dropoff', 'appointment')),
+      preferred_date TEXT,
+      preferred_time TEXT,
+      customer_name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      city TEXT NOT NULL,
+      address TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'requested'
+        CHECK (status IN ('requested', 'appointment_set', 'pickup_scheduled', 'picked_up', 'in_repair', 'ready', 'returned', 'cancelled')),
+      admin_notes TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
 
@@ -90,7 +112,14 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS contact_messages_status_created_idx ON contact_messages(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS products_category_idx ON products(category);
     CREATE INDEX IF NOT EXISTS products_created_idx ON products(created_at DESC);
+    CREATE INDEX IF NOT EXISTS repair_requests_status_created_idx ON repair_requests(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS repair_requests_customer_created_idx ON repair_requests(customer_id, created_at DESC);
   `);
 
   await seedAdmin();
+  await removeLegacyRepairProducts();
+}
+
+async function removeLegacyRepairProducts() {
+  await pool.query("DELETE FROM products WHERE category = 'reparations'");
 }

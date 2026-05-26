@@ -11,6 +11,7 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ContactPage from './pages/ContactPage';
+import RepairPage from './pages/RepairPage';
 import AccountPage from './pages/AccountPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -25,6 +26,7 @@ function PageRouter() {
     case 'cart': return <CartPage />;
     case 'checkout': return <CheckoutPage />;
     case 'contact': return <ContactPage />;
+    case 'repair': return <RepairPage />;
     case 'account': return <AccountPage />;
     case 'login': return <Login />;
     case 'signup': return <Signup />;
