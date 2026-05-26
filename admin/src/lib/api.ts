@@ -154,6 +154,28 @@ export async function createAdminProduct(formData: FormData) {
   return { product: normalizeProduct(data.product) };
 }
 
+export async function updateAdminProduct(id: number, formData: FormData) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = new Headers();
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_URL}/admin/products/${id}`, {
+    method: 'PUT',
+    headers,
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Product update failed');
+  }
+
+  return { product: normalizeProduct(data.product) };
+}
+
 export async function deleteAdminProduct(id: number) {
   return request<{ product: Product }>(`/admin/products/${id}`, { method: 'DELETE' });
 }

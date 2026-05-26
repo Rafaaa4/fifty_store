@@ -50,6 +50,7 @@ The server creates the tables automatically and seeds the first admin from `ADMI
 - `PATCH /api/admin/contacts/:id/read` marks a message as read.
 - `GET /api/admin/products` lists products for the dashboard.
 - `POST /api/admin/products` creates a product with an uploaded image.
+- `PUT /api/admin/products/:id` edits a product, with optional new image upload.
 - `DELETE /api/admin/products/:id` deletes a product.
 
 The standalone dashboard lives in `../admin`.

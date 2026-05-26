@@ -14,9 +14,12 @@ export default function HomePage() {
   const { products } = useProducts();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  const latestProducts = products.slice(0, 4);
   const featuredProducts = products.filter(p => p.isBestSeller).slice(0, 4);
   const newProducts = products.filter(p => p.isNew).slice(0, 4);
-  const promoProducts = products.filter(p => p.discount && p.discount >= 20).slice(0, 4);
+  const promoProducts = products.filter(p => p.discount && p.discount > 0).slice(0, 4);
+  const visibleFeaturedProducts = featuredProducts.length > 0 ? featuredProducts : latestProducts;
+  const visibleNewProducts = newProducts.length > 0 ? newProducts : latestProducts;
 
   const categoryIcons: Record<string, React.ReactNode> = {
     smartphones: <Smartphone size={28} />,
@@ -195,7 +198,7 @@ export default function HomePage() {
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map(product => (
+            {visibleFeaturedProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
@@ -245,7 +248,7 @@ export default function HomePage() {
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {newProducts.map(product => (
+            {visibleNewProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

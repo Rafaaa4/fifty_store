@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2, Image, LogOut, Mail, MessageSquare, PackageCheck,
-  Plus, RefreshCcw, Shield, Trash2, Truck, XCircle
+  Pencil, Plus, RefreshCcw, Shield, Trash2, Truck, XCircle
 } from 'lucide-react';
 import {
   clearAdminToken,
@@ -17,6 +17,7 @@ import {
   Order,
   OrderStatus,
   Product,
+  updateAdminProduct,
   updateOrderStatus,
 } from './lib/api';
 
@@ -44,6 +45,20 @@ function statusLabel(status: OrderStatus) {
   return statuses.find((item) => item.value === status)?.label || status;
 }
 
+const emptyProductForm = {
+  name: '',
+  category: 'smartphones',
+  price: '',
+  originalPrice: '',
+  discount: '',
+  description: '',
+  features: '',
+  badge: '',
+  inStock: true,
+  isNew: false,
+  isBestSeller: false,
+};
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAdminToken()));
   const [email, setEmail] = useState('');
@@ -56,27 +71,19 @@ export default function App() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingId, setIsSavingId] = useState<number | null>(null);
-  const [productForm, setProductForm] = useState({
-    name: '',
-    category: 'smartphones',
-    price: '',
-    originalPrice: '',
-    discount: '',
-    description: '',
-    features: '',
-    badge: '',
-    inStock: true,
-    isNew: false,
-    isBestSeller: false,
-  });
+  const [productForm, setProductForm] = useState(emptyProductForm);
   const [productImage, setProductImage] = useState<File | null>(null);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
   const stats = useMemo(() => {
-    const total = orders.reduce((sum, order) => sum + Number(order.total), 0);
+    const soldStatuses: OrderStatus[] = ['confirmed', 'delivering', 'completed'];
+    const soldOrders = orders.filter((order) => soldStatuses.includes(order.status));
+    const total = soldOrders.reduce((sum, order) => sum + Number(order.total), 0);
     return {
       count: orders.length,
       pending: orders.filter((order) => order.status === 'pending').length,
       confirmed: orders.filter((order) => order.status === 'confirmed').length,
+      soldCount: soldOrders.length,
       total,
     };
   }, [orders]);
@@ -179,11 +186,17 @@ export default function App() {
     }
   };
 
+  const resetProductForm = () => {
+    setProductForm(emptyProductForm);
+    setProductImage(null);
+    setEditingProductId(null);
+  };
+
   const handleCreateProduct = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
 
-    if (!productImage) {
+    if (!editingProductId && !productImage) {
       setError('Image produit obligatoire.');
       return;
     }
@@ -192,29 +205,42 @@ export default function App() {
     try {
       const formData = new FormData();
       Object.entries(productForm).forEach(([key, value]) => formData.append(key, String(value)));
-      formData.append('image', productImage);
+      if (productImage) {
+        formData.append('image', productImage);
+      }
 
-      const data = await createAdminProduct(formData);
-      setProducts((current) => [data.product, ...current]);
-      setProductForm({
-        name: '',
-        category: 'smartphones',
-        price: '',
-        originalPrice: '',
-        discount: '',
-        description: '',
-        features: '',
-        badge: '',
-        inStock: true,
-        isNew: false,
-        isBestSeller: false,
-      });
-      setProductImage(null);
+      if (editingProductId) {
+        const data = await updateAdminProduct(editingProductId, formData);
+        setProducts((current) => current.map((product) => (product.id === editingProductId ? data.product : product)));
+      } else {
+        const data = await createAdminProduct(formData);
+        setProducts((current) => [data.product, ...current]);
+      }
+
+      resetProductForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload produit impossible.');
+      setError(err instanceof Error ? err.message : 'Sauvegarde produit impossible.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProductId(product.id);
+    setProductImage(null);
+    setProductForm({
+      name: product.name,
+      category: product.category,
+      price: String(product.price),
+      originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+      discount: product.discount ? String(product.discount) : '',
+      description: product.description,
+      features: product.features.join('\n'),
+      badge: product.badge || '',
+      inStock: product.inStock,
+      isNew: product.isNew,
+      isBestSeller: product.isBestSeller,
+    });
   };
 
   const handleDeleteProduct = async (productId: number) => {
@@ -355,11 +381,11 @@ export default function App() {
             <p className="text-yellow-300 text-2xl font-black mt-1">{stats.pending}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-500 text-xs uppercase">Confirmées</p>
-            <p className="text-blue-300 text-2xl font-black mt-1">{stats.confirmed}</p>
+            <p className="text-gray-500 text-xs uppercase">Ventes</p>
+            <p className="text-blue-300 text-2xl font-black mt-1">{stats.soldCount}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-500 text-xs uppercase">Total</p>
+            <p className="text-gray-500 text-xs uppercase">Total ventes</p>
             <p className="text-green-300 text-2xl font-black mt-1">{money(stats.total)}</p>
           </div>
         </div>}
@@ -511,7 +537,18 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <form onSubmit={handleCreateProduct} className="xl:col-span-1 bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-              <h2 className="text-white font-black text-xl">Nouveau produit</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-white font-black text-xl">{editingProductId ? 'Modifier produit' : 'Nouveau produit'}</h2>
+                {editingProductId && (
+                  <button
+                    type="button"
+                    onClick={resetProductForm}
+                    className="text-gray-400 hover:text-white text-sm"
+                  >
+                    Annuler
+                  </button>
+                )}
+              </div>
               <input
                 value={productForm.name}
                 onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))}
@@ -579,9 +616,11 @@ export default function App() {
                 type="file"
                 accept="image/*"
                 onChange={(event) => setProductImage(event.target.files?.[0] || null)}
-                required
                 className="w-full bg-gray-800 border border-gray-700 text-gray-300 px-4 py-3 rounded-xl text-sm"
               />
+              {editingProductId && (
+                <p className="text-gray-500 text-xs">Laissez l'image vide pour garder l'image actuelle.</p>
+              )}
               <div className="grid grid-cols-3 gap-2 text-sm text-gray-300">
                 {[
                   ['inStock', 'Stock'],
@@ -604,7 +643,7 @@ export default function App() {
                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Plus size={18} />
-                Ajouter produit
+                {editingProductId ? 'Enregistrer modifications' : 'Ajouter produit'}
               </button>
             </form>
 
@@ -631,6 +670,12 @@ export default function App() {
                         <td className="p-4 text-gray-400">{product.category}</td>
                         <td className="p-4 text-right text-white font-bold">{money(product.price)}</td>
                         <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleEditProduct(product)}
+                            className="p-2 text-gray-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl transition-colors"
+                          >
+                            <Pencil size={17} />
+                          </button>
                           <button
                             onClick={() => handleDeleteProduct(product.id)}
                             disabled={isSavingId === product.id}

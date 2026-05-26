@@ -61,6 +61,48 @@ export async function createProduct(data, imageUrl) {
   return mapProduct(rows[0]);
 }
 
+export async function updateProduct(id, data, imageUrl) {
+  const { rows } = await pool.query(`
+    UPDATE products
+    SET
+      name = $1,
+      category = $2,
+      price = $3,
+      original_price = $4,
+      discount = $5,
+      rating = $6,
+      reviews = $7,
+      image = COALESCE($8, image),
+      description = $9,
+      features = $10::jsonb,
+      badge = $11,
+      in_stock = $12,
+      is_new = $13,
+      is_best_seller = $14,
+      updated_at = NOW()
+    WHERE id = $15
+    RETURNING *
+  `, [
+    data.name,
+    data.category,
+    data.price,
+    data.originalPrice ?? null,
+    data.discount ?? null,
+    data.rating,
+    data.reviews,
+    imageUrl || null,
+    data.description,
+    JSON.stringify(featureList(data.features)),
+    data.badge || null,
+    data.inStock,
+    data.isNew,
+    data.isBestSeller,
+    id,
+  ]);
+
+  return rows[0] ? mapProduct(rows[0]) : null;
+}
+
 export async function deleteProduct(id) {
   const { rows } = await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
   return rows[0] ? mapProduct(rows[0]) : null;
