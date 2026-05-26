@@ -43,10 +43,14 @@ The server creates the tables automatically and seeds the first admin from `ADMI
 - `POST /api/customer/login` logs in a customer.
 - `GET /api/customer/orders` lists the logged-in customer's orders.
 - `POST /api/contact` stores a contact message.
+- `GET /api/products` lists products from the database.
 - `GET /api/admin/orders` lists orders for the dashboard.
 - `PATCH /api/admin/orders/:id/status` updates order status.
 - `GET /api/admin/contacts` lists contact messages.
 - `PATCH /api/admin/contacts/:id/read` marks a message as read.
+- `GET /api/admin/products` lists products for the dashboard.
+- `POST /api/admin/products` creates a product with an uploaded image.
+- `DELETE /api/admin/products/:id` deletes a product.
 
 The standalone dashboard lives in `../admin`.
 

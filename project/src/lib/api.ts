@@ -1,7 +1,9 @@
 import { CartItem } from '../context/CartContext';
+import { Product } from '../data/products';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CUSTOMER_TOKEN_KEY = 'fifty_customer_token';
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
 
 export interface Customer {
   id: number;
@@ -135,4 +137,15 @@ export async function sendContactMessage(form: {
     method: 'POST',
     body: JSON.stringify(form),
   });
+}
+
+export async function fetchProducts() {
+  const data = await request<{ products: Product[] }>('/products');
+  return {
+    products: data.products.map((product) => ({
+      ...product,
+      image: product.image.startsWith('/uploads') ? `${API_ORIGIN}${product.image}` : product.image,
+      images: product.images?.map((image) => (image.startsWith('/uploads') ? `${API_ORIGIN}${image}` : image)),
+    })),
+  };
 }

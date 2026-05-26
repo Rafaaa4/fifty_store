@@ -3,14 +3,15 @@ import {
   ShoppingCart, ArrowLeft, Star, Shield, Truck, MessageCircle,
   ChevronLeft, ChevronRight, Check, Package, Clock
 } from 'lucide-react';
-import { products } from '../data/products';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import ProductCard from '../components/ProductCard';
+import { useProducts } from '../context/ProductContext';
 
 export default function ProductDetailPage() {
   const { selectedProductId, navigate } = useApp();
   const { addToCart } = useCart();
+  const { products } = useProducts();
   const [quantity, setQuantity] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
   const [addedFeedback, setAddedFeedback] = useState(false);

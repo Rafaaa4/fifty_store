@@ -3,16 +3,18 @@ import { LogOut, ShoppingCart, Search, Menu, X, Zap, Phone, UserRound } from 'lu
 import { useCart } from '../context/CartContext';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { products } from '../data/products';
+import { Product } from '../data/products';
+import { useProducts } from '../context/ProductContext';
 
 export default function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
   const { navigate } = useApp();
   const { user, logout } = useAuth();
+  const { products } = useProducts();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState(products.slice(0, 0));
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {

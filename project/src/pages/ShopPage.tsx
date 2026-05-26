@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import { products, categories } from '../data/products';
+import { categories } from '../data/products';
 import ProductCard from '../components/ProductCard';
+import { useProducts } from '../context/ProductContext';
 
 export default function ShopPage() {
+  const { products, isLoading, error } = useProducts();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('default');
@@ -25,7 +27,7 @@ export default function ShopPage() {
       case 'discount': return result.sort((a, b) => (b.discount || 0) - (a.discount || 0));
       default: return result;
     }
-  }, [selectedCategory, searchQuery, sortBy, priceRange]);
+  }, [products, selectedCategory, searchQuery, sortBy, priceRange]);
 
   const clearFilters = () => {
     setSelectedCategory('all');
@@ -209,7 +211,11 @@ export default function ShopPage() {
             </div>
 
             {/* Products grid */}
-            {filtered.length > 0 ? (
+            {isLoading ? (
+              <div className="text-center py-20 text-gray-400">Chargement des produits...</div>
+            ) : error ? (
+              <div className="text-center py-20 text-red-300">{error}</div>
+            ) : filtered.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(product => (
                   <ProductCard key={product.id} product={product} />

@@ -4,12 +4,14 @@ import {
   ChevronDown, ChevronUp, Package, Clock, CreditCard,
   Smartphone, Headphones, Watch, Gamepad2
 } from 'lucide-react';
-import { products, categories, testimonials, faqs } from '../data/products';
+import { categories, testimonials, faqs } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import { useApp } from '../context/AppContext';
+import { useProducts } from '../context/ProductContext';
 
 export default function HomePage() {
   const { navigate } = useApp();
+  const { products } = useProducts();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const featuredProducts = products.filter(p => p.isBestSeller).slice(0, 4);

@@ -1,6 +1,7 @@
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { ProductProvider } from './context/ProductContext';
 import Navbar from './components/Navbar';
 import CartSidebar from './components/CartSidebar';
 import Footer from './components/Footer';
@@ -50,9 +51,11 @@ export default function App() {
   return (
     <AppProvider>
       <AuthProvider>
-        <CartProvider>
-          <AppLayout />
-        </CartProvider>
+        <ProductProvider>
+          <CartProvider>
+            <AppLayout />
+          </CartProvider>
+        </ProductProvider>
       </AuthProvider>
     </AppProvider>
   );

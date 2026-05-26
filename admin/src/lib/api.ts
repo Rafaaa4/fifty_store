@@ -1,5 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const TOKEN_KEY = 'fifty_admin_token';
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
 
 export type OrderStatus = 'pending' | 'confirmed' | 'delivering' | 'completed' | 'cancelled';
 
@@ -40,6 +41,24 @@ export interface ContactMessage {
   created_at: string;
   customer_full_name: string | null;
   customer_email: string | null;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  originalPrice?: number;
+  discount?: number;
+  rating: number;
+  reviews: number;
+  image: string;
+  description: string;
+  features: string[];
+  badge?: string;
+  inStock: boolean;
+  isNew: boolean;
+  isBestSeller: boolean;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -99,4 +118,42 @@ export async function markContactRead(id: number) {
     method: 'PATCH',
     body: JSON.stringify({}),
   });
+}
+
+function normalizeProduct(product: Product) {
+  return {
+    ...product,
+    image: product.image.startsWith('/uploads') ? `${API_ORIGIN}${product.image}` : product.image,
+  };
+}
+
+export async function fetchAdminProducts() {
+  const data = await request<{ products: Product[] }>('/admin/products');
+  return { products: data.products.map(normalizeProduct) };
+}
+
+export async function createAdminProduct(formData: FormData) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = new Headers();
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_URL}/admin/products`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Product upload failed');
+  }
+
+  return { product: normalizeProduct(data.product) };
+}
+
+export async function deleteAdminProduct(id: number) {
+  return request<{ product: Product }>(`/admin/products/${id}`, { method: 'DELETE' });
 }

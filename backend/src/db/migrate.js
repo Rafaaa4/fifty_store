@@ -61,6 +61,26 @@ export async function migrate() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      price NUMERIC(12, 2) NOT NULL,
+      original_price NUMERIC(12, 2),
+      discount INTEGER,
+      rating NUMERIC(3, 2) NOT NULL DEFAULT 5,
+      reviews INTEGER NOT NULL DEFAULT 0,
+      image TEXT NOT NULL,
+      description TEXT NOT NULL,
+      features JSONB NOT NULL DEFAULT '[]',
+      badge TEXT,
+      in_stock BOOLEAN NOT NULL DEFAULT true,
+      is_new BOOLEAN NOT NULL DEFAULT false,
+      is_best_seller BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
 
@@ -68,6 +88,8 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS orders_user_created_idx ON orders(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON order_items(order_id);
     CREATE INDEX IF NOT EXISTS contact_messages_status_created_idx ON contact_messages(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS products_category_idx ON products(category);
+    CREATE INDEX IF NOT EXISTS products_created_idx ON products(created_at DESC);
   `);
 
   await seedAdmin();
