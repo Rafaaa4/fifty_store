@@ -11,8 +11,19 @@ export async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      full_name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      phone TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
       customer_name TEXT NOT NULL,
       phone TEXT NOT NULL,
       address TEXT NOT NULL,
@@ -38,8 +49,25 @@ export async function migrate() {
       image TEXT NOT NULL DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS contact_messages (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'read')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
+
     CREATE INDEX IF NOT EXISTS orders_status_created_idx ON orders(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS orders_user_created_idx ON orders(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON order_items(order_id);
+    CREATE INDEX IF NOT EXISTS contact_messages_status_created_idx ON contact_messages(status, created_at DESC);
   `);
 
   await seedAdmin();

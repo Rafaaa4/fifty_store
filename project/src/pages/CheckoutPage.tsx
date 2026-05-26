@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MessageCircle, Check, Truck, CreditCard, Package, ArrowLeft } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { createOrder } from '../lib/api';
 
 interface FormData {
@@ -15,8 +16,9 @@ interface FormData {
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
   const { navigate } = useApp();
+  const { user } = useAuth();
   const [form, setForm] = useState<FormData>({
-    fullName: '', phone: '', address: '', city: '', notes: '',
+    fullName: user?.fullName || '', phone: user?.phone || '', address: '', city: '', notes: '',
   });
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderId, setOrderId] = useState<number | null>(null);

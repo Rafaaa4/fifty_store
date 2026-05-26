@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Menu, X, Zap, Phone } from 'lucide-react';
+import { LogOut, ShoppingCart, Search, Menu, X, Zap, Phone, UserRound } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { products } from '../data/products';
 
 export default function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
   const { navigate } = useApp();
+  const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,6 +123,29 @@ export default function Navbar() {
             </div>
 
             {/* Cart button */}
+            {user ? (
+              <div className="hidden md:flex items-center gap-2 text-sm">
+                <button onClick={() => navigate('account')} className="text-gray-300 hover:text-white max-w-28 truncate">
+                  {user.fullName}
+                </button>
+                <button
+                  onClick={logout}
+                  className="p-2 text-gray-300 hover:text-white transition-colors"
+                  title="Déconnexion"
+                >
+                  <LogOut size={19} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('login')}
+                className="hidden md:flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white transition-colors text-sm font-semibold"
+              >
+                <UserRound size={18} />
+                Connexion
+              </button>
+            )}
+
             <button
               onClick={() => setIsCartOpen(true)}
               className="relative p-2 text-gray-300 hover:text-white transition-colors"
@@ -196,6 +221,37 @@ export default function Navbar() {
             >
               Commander
             </button>
+            {user ? (
+              <>
+              <button
+                onClick={() => { navigate('account'); setIsMenuOpen(false); }}
+                className="block w-full text-left px-3 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-colors font-medium"
+              >
+                Mes commandes
+              </button>
+              <button
+                onClick={() => { logout(); setIsMenuOpen(false); }}
+                className="block w-full text-left px-3 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-colors font-medium"
+              >
+                Déconnexion
+              </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => { navigate('login'); setIsMenuOpen(false); }}
+                  className="block w-full text-left px-3 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-colors font-medium"
+                >
+                  Connexion
+                </button>
+                <button
+                  onClick={() => { navigate('signup'); setIsMenuOpen(false); }}
+                  className="block w-full text-left px-3 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition-colors font-medium"
+                >
+                  Inscription
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

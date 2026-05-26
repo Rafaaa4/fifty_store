@@ -21,6 +21,12 @@ docker compose up -d
 
 Or use your local PostgreSQL and update `DATABASE_URL`.
 
+For a local PostgreSQL install, you can prepare the default development database with:
+
+```bash
+npm run db:setup
+```
+
 4. Start the API:
 
 ```bash
@@ -33,8 +39,14 @@ The server creates the tables automatically and seeds the first admin from `ADMI
 
 - `POST /api/orders` creates a customer order.
 - `POST /api/auth/login` logs in an admin.
+- `POST /api/customer/signup` creates a customer account.
+- `POST /api/customer/login` logs in a customer.
+- `GET /api/customer/orders` lists the logged-in customer's orders.
+- `POST /api/contact` stores a contact message.
 - `GET /api/admin/orders` lists orders for the dashboard.
 - `PATCH /api/admin/orders/:id/status` updates order status.
+- `GET /api/admin/contacts` lists contact messages.
+- `PATCH /api/admin/contacts/:id/read` marks a message as read.
 
 The standalone dashboard lives in `../admin`.
 

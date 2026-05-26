@@ -32,7 +32,7 @@ export async function getOrderById(id) {
   return rows[0] || null;
 }
 
-export async function createOrder({ customer, items, deliveryFee, paymentMethod }) {
+export async function createOrder({ customer, items, deliveryFee, paymentMethod }, userId) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const total = subtotal + deliveryFee;
   const client = await pool.connect();
@@ -41,11 +41,12 @@ export async function createOrder({ customer, items, deliveryFee, paymentMethod 
     await client.query('BEGIN');
     const { rows } = await client.query(`
       INSERT INTO orders (
-        customer_name, phone, address, city, notes, payment_method, subtotal, delivery_fee, total
+        user_id, customer_name, phone, address, city, notes, payment_method, subtotal, delivery_fee, total
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id
     `, [
+      userId || null,
       customer.fullName,
       customer.phone,
       customer.address,
@@ -74,6 +75,18 @@ export async function createOrder({ customer, items, deliveryFee, paymentMethod 
   } finally {
     client.release();
   }
+}
+
+export async function listCustomerOrders(userId) {
+  const { rows } = await pool.query(`
+    ${orderSelect}
+    WHERE o.user_id = $1
+    GROUP BY o.id
+    ORDER BY o.created_at DESC
+    LIMIT 100
+  `, [userId]);
+
+  return rows;
 }
 
 export async function listOrders(status) {

@@ -15,6 +15,18 @@ migrate()
     });
   })
   .catch((error) => {
+    if (error.code === '28P01') {
+      console.error('PostgreSQL authentication failed. Check DATABASE_URL in backend/.env or reset the postgres password.');
+    }
+
+    if (error.code === '3D000') {
+      console.error('PostgreSQL database does not exist. Create the database named in DATABASE_URL first.');
+    }
+
+    if (error.code === 'ECONNREFUSED') {
+      console.error('PostgreSQL is not running or is not reachable at the host/port from DATABASE_URL.');
+    }
+
     console.error('Failed to start backend:', error);
     process.exit(1);
   });

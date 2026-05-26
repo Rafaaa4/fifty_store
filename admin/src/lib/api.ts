@@ -29,6 +29,19 @@ export interface Order {
   items: OrderItem[];
 }
 
+export interface ContactMessage {
+  id: number;
+  customer_id: number | null;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  status: 'new' | 'read';
+  created_at: string;
+  customer_full_name: string | null;
+  customer_email: string | null;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers = new Headers(options.headers);
@@ -74,5 +87,16 @@ export async function updateOrderStatus(id: number, status: OrderStatus) {
   return request<{ order: Order }>(`/admin/orders/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function fetchAdminContacts() {
+  return request<{ messages: ContactMessage[] }>('/admin/contacts');
+}
+
+export async function markContactRead(id: number) {
+  return request<{ message: ContactMessage }>(`/admin/contacts/${id}/read`, {
+    method: 'PATCH',
+    body: JSON.stringify({}),
   });
 }

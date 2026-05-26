@@ -1,4 +1,5 @@
 import { AppProvider, useApp } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/Navbar';
 import CartSidebar from './components/CartSidebar';
@@ -9,6 +10,9 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import ContactPage from './pages/ContactPage';
+import AccountPage from './pages/AccountPage';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 
 function PageRouter() {
   const { currentPage } = useApp();
@@ -20,6 +24,9 @@ function PageRouter() {
     case 'cart': return <CartPage />;
     case 'checkout': return <CheckoutPage />;
     case 'contact': return <ContactPage />;
+    case 'account': return <AccountPage />;
+    case 'login': return <Login />;
+    case 'signup': return <Signup />;
     default: return <HomePage />;
   }
 }
@@ -42,9 +49,11 @@ function AppLayout() {
 export default function App() {
   return (
     <AppProvider>
-      <CartProvider>
-        <AppLayout />
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AppLayout />
+        </CartProvider>
+      </AuthProvider>
     </AppProvider>
   );
 }

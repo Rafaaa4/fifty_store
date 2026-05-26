@@ -14,6 +14,6 @@ orderRouter.post('/', async (req, res) => {
     });
   }
 
-  const order = await createOrder(parsed.data);
+  const order = await createOrder(parsed.data, req.customer?.id);
   return res.status(201).json({ order });
 });

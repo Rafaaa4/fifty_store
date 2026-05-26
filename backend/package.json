@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "db:setup": "bash scripts/setup-postgres.sh",
     "dev": "nodemon server.js",
     "start": "node server.js"
   },

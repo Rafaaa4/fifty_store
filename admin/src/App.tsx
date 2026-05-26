@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, LogOut, PackageCheck, RefreshCcw, Shield, Truck, XCircle } from 'lucide-react';
+import { CheckCircle2, LogOut, Mail, MessageSquare, PackageCheck, RefreshCcw, Shield, Truck, XCircle } from 'lucide-react';
 import {
   clearAdminToken,
+  ContactMessage,
+  fetchAdminContacts,
   fetchAdminOrders,
   getAdminToken,
   loginAdmin,
+  markContactRead,
   Order,
   OrderStatus,
   updateOrderStatus,
@@ -39,6 +42,8 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
+  const [contacts, setContacts] = useState<ContactMessage[]>([]);
+  const [view, setView] = useState<'orders' | 'contacts'>('orders');
   const [status, setStatus] = useState<OrderStatus | 'all'>('all');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +58,8 @@ export default function App() {
       total,
     };
   }, [orders]);
+
+  const unreadContacts = contacts.filter((message) => message.status === 'new').length;
 
   const loadOrders = useCallback(async () => {
     setError('');
@@ -71,11 +78,28 @@ export default function App() {
     }
   }, [status]);
 
+  const loadContacts = useCallback(async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const data = await fetchAdminContacts();
+      setContacts(data.messages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de charger les messages.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
-      loadOrders();
+      if (view === 'orders') {
+        loadOrders();
+      } else {
+        loadContacts();
+      }
     }
-  }, [isAuthenticated, loadOrders]);
+  }, [isAuthenticated, loadContacts, loadOrders, view]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -105,10 +129,24 @@ export default function App() {
     }
   };
 
+  const handleContactRead = async (messageId: number) => {
+    setError('');
+    setIsSavingId(messageId);
+    try {
+      const data = await markContactRead(messageId);
+      setContacts((current) => current.map((message) => (message.id === messageId ? data.message : message)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Mise à jour impossible.');
+    } finally {
+      setIsSavingId(null);
+    }
+  };
+
   const logout = () => {
     clearAdminToken();
     setIsAuthenticated(false);
     setOrders([]);
+    setContacts([]);
   };
 
   if (!isAuthenticated) {
@@ -165,12 +203,12 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-black text-white">Dashboard commandes</h1>
-            <p className="text-gray-400 text-sm">Gestion des commandes Cash on Delivery</p>
+            <h1 className="text-3xl font-black text-white">Dashboard Fifty Store</h1>
+            <p className="text-gray-400 text-sm">Gestion des commandes et messages contact</p>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={loadOrders}
+              onClick={view === 'orders' ? loadOrders : loadContacts}
               disabled={isLoading}
               className="px-4 py-3 bg-gray-900 border border-gray-800 text-gray-200 rounded-xl hover:border-gray-700 transition-colors flex items-center gap-2"
             >
@@ -187,7 +225,29 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setView('orders')}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 ${
+              view === 'orders' ? 'bg-blue-600 text-white' : 'bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700'
+            }`}
+          >
+            <PackageCheck size={16} />
+            Commandes
+          </button>
+          <button
+            onClick={() => setView('contacts')}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 ${
+              view === 'contacts' ? 'bg-blue-600 text-white' : 'bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700'
+            }`}
+          >
+            <MessageSquare size={16} />
+            Contacts
+            {unreadContacts > 0 && <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{unreadContacts}</span>}
+          </button>
+        </div>
+
+        {view === 'orders' && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-500 text-xs uppercase">Commandes</p>
             <p className="text-white text-2xl font-black mt-1">{stats.count}</p>
@@ -204,9 +264,9 @@ export default function App() {
             <p className="text-gray-500 text-xs uppercase">Total</p>
             <p className="text-green-300 text-2xl font-black mt-1">{money(stats.total)}</p>
           </div>
-        </div>
+        </div>}
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        {view === 'orders' && <div className="flex flex-wrap gap-2 mb-6">
           {statuses.map((item) => (
             <button
               key={item.value}
@@ -220,11 +280,11 @@ export default function App() {
               {item.label}
             </button>
           ))}
-        </div>
+        </div>}
 
         {error && <div className="mb-6 text-sm text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">{error}</div>}
 
-        <div className="space-y-4">
+        {view === 'orders' ? <div className="space-y-4">
           {orders.map((order) => (
             <div key={order.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
@@ -293,7 +353,64 @@ export default function App() {
               Aucune commande pour ce filtre.
             </div>
           )}
-        </div>
+        </div> : (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-500 border-b border-gray-800">
+                  <tr>
+                    <th className="text-left p-4 font-medium">Client</th>
+                    <th className="text-left p-4 font-medium">Contact</th>
+                    <th className="text-left p-4 font-medium">Message</th>
+                    <th className="text-left p-4 font-medium">Date</th>
+                    <th className="text-right p-4 font-medium">Statut</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {contacts.map((message) => (
+                    <tr key={message.id} className="align-top">
+                      <td className="p-4">
+                        <p className="text-white font-semibold">{message.name}</p>
+                        {message.customer_full_name && (
+                          <p className="text-blue-300 text-xs mt-1">Compte: {message.customer_full_name}</p>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-300">
+                        <p>{message.phone}</p>
+                        {message.email && <p className="text-gray-500 mt-1">{message.email}</p>}
+                      </td>
+                      <td className="p-4 text-gray-300 max-w-xl">
+                        <p className="whitespace-pre-wrap">{message.message}</p>
+                      </td>
+                      <td className="p-4 text-gray-500">{new Date(message.created_at).toLocaleString()}</td>
+                      <td className="p-4 text-right">
+                        {message.status === 'new' ? (
+                          <button
+                            onClick={() => handleContactRead(message.id)}
+                            disabled={isSavingId === message.id}
+                            className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors inline-flex items-center gap-2"
+                          >
+                            <Mail size={15} />
+                            Marquer lu
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-300 border border-green-500/20 text-xs font-bold">
+                            Lu
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {!isLoading && contacts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-10 text-center text-gray-400">Aucun message contact.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

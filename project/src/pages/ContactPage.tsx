@@ -1,18 +1,34 @@
 import { Phone, Mail, MapPin, MessageCircle, Clock, Send, Instagram, Facebook, Youtube } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { sendContactMessage } from '../lib/api';
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const { user } = useAuth();
+  const [form, setForm] = useState({
+    name: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    message: '',
+  });
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const msg = encodeURIComponent(
-      `📩 *Message depuis le site Fifty Store*\n\n👤 *Nom :* ${form.name}\n📧 *Email :* ${form.email}\n📞 *Tél :* ${form.phone}\n\n💬 *Message :*\n${form.message}`
-    );
-    window.open(`https://wa.me/21699400090?text=${msg}`, '_blank');
-    setSent(true);
-    setForm({ name: '', email: '', phone: '', message: '' });
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await sendContactMessage(form);
+      setSent(true);
+      setForm({ name: user?.fullName || '', email: user?.email || '', phone: user?.phone || '', message: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible d’envoyer le message.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -134,7 +150,7 @@ export default function ContactPage() {
                   <Send size={28} className="text-green-400" />
                 </div>
                 <h3 className="text-white font-bold text-xl mb-2">Message envoyé !</h3>
-                <p className="text-gray-400">Votre message a été transmis via WhatsApp. Nous vous répondrons très rapidement.</p>
+                <p className="text-gray-400">Votre message a été transmis à notre équipe. Nous vous répondrons très rapidement.</p>
                 <button
                   onClick={() => setSent(false)}
                   className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors text-sm"
@@ -144,6 +160,11 @@ export default function ContactPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-8 space-y-5">
+                {error && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                    {error}
+                  </div>
+                )}
                 <div>
                   <label className="block text-gray-400 text-sm mb-2">Nom complet <span className="text-red-400">*</span></label>
                   <input
@@ -191,10 +212,11 @@ export default function ContactPage() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-green-500/20"
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-2xl transition-all duration-200 flex items-center justify-center gap-2"
                 >
-                  <MessageCircle size={18} />
-                  Envoyer via WhatsApp
+                  <Send size={18} />
+                  {isSubmitting ? 'Envoi...' : 'Envoyer le message'}
                 </button>
               </form>
             )}
