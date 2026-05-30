@@ -1,425 +1,451 @@
-import { useState } from 'react';
-import {
-  ArrowRight, Truck, Shield, MessageCircle, Zap, Star,
-  ChevronDown, ChevronUp, Package, Clock, CreditCard,
-  Smartphone, Headphones, Watch, Gamepad2
-} from 'lucide-react';
-import { categories, testimonials, faqs } from '../data/products';
+﻿import { ArrowRight, Flame, MessageCircle, ShieldCheck, Star, TrendingUp } from 'lucide-react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { BadgePercent, CreditCard, Truck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
-import { useApp } from '../context/AppContext';
-import { useProducts } from '../context/ProductContext';
+import Seo from '../components/Seo';
+import MagneticButton from '../components/animations/MagneticButton';
+import Reveal from '../components/animations/Reveal';
+import OptimizedImage from '../components/ui/OptimizedImage';
+import ProductCardSkeleton from '../components/ui/ProductCardSkeleton';
+import { useCatalog } from '../context/CatalogContext';
+import { faqs } from '../data/products';
+import { STORE_INFO } from '../data/store';
+import { formatPrice } from '../utils/format';
+import { readRecentlyViewed } from '../utils/recentlyViewed';
+import { buildDirectProductMessage, openWhatsApp } from '../utils/whatsapp';
+
+// Deferred below-the-fold sections keep the first render lighter in production.
+const AIProductRecommender = lazy(() => import('../components/AIProductRecommender'));
+const DeliverySection = lazy(() => import('../components/DeliverySection'));
+const InstagramShowcase = lazy(() => import('../components/InstagramShowcase'));
+const PhoneMatchQuiz = lazy(() => import('../components/PhoneMatchQuiz'));
+const SetupBuilder = lazy(() => import('../components/SetupBuilder'));
+const StoreLocation = lazy(() => import('../components/StoreLocation'));
+
+const tunisianSlogans = [
+  'سوم يفرّح و livraison تاقفة',
+  'قلي budgetek، نلقالك لقطة',
+  'ما تضيعش وقتك، اختار الصح',
+  'Deal سخون قبل ما يبرد',
+  'تليفونك الجاي؟ خلّيه علينا',
+  'أسعار ما تتعاودش كل نهار',
+  'Pack كامل، وجيبتو خفيفة',
+  'Fifty Store: تشوف، تختار، توصلك',
+];
+
+function DeferredSectionFallback() {
+  return <div className="mx-auto my-8 h-24 max-w-7xl animate-pulse rounded-3xl border border-soft bg-surface-strong/60" />;
+}
 
 export default function HomePage() {
-  const { navigate } = useApp();
-  const { products } = useProducts();
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { products, loading } = useCatalog();
+  const [recentIds, setRecentIds] = useState<number[]>([]);
 
-  const latestProducts = products.slice(0, 4);
-  const featuredProducts = products.filter(p => p.isBestSeller).slice(0, 4);
-  const newProducts = products.filter(p => p.isNew).slice(0, 4);
-  const promoProducts = products.filter(p => p.discount && p.discount > 0).slice(0, 4);
-  const visibleFeaturedProducts = featuredProducts.length > 0 ? featuredProducts : latestProducts;
-  const visibleNewProducts = newProducts.length > 0 ? newProducts : latestProducts;
+  useEffect(() => {
+    setRecentIds(readRecentlyViewed());
+  }, []);
 
-  const categoryIcons: Record<string, React.ReactNode> = {
-    smartphones: <Smartphone size={28} />,
-    coques: <Shield size={28} />,
-    chargeurs: <Zap size={28} />,
-    ecouteurs: <Headphones size={28} />,
-    montres: <Watch size={28} />,
-    gaming: <Gamepad2 size={28} />,
-  };
+  const bestSellers = useMemo(() => products.filter((product) => product.isBestSeller).slice(0, 8), [products]);
+  const newArrivals = useMemo(() => products.filter((product) => product.isNew).slice(0, 4), [products]);
+  const featuredDeals = useMemo(
+    () =>
+      products
+        .filter((product) => Boolean(product.discount))
+        .sort((a, b) => (b.discount ?? 0) - (a.discount ?? 0))
+        .slice(0, 3),
+    [products],
+  );
+  const heroProduct = bestSellers[0] ?? products[0];
+  const maxDiscount = featuredDeals[0]?.discount ?? 0;
+  const productOfTheDay = featuredDeals[0] ?? heroProduct;
+  const trendingProducts = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => b.rating * 100 + b.reviews - (a.rating * 100 + a.reviews))
+        .slice(0, 4),
+    [products],
+  );
+
+  const recentlyViewedProducts = useMemo(
+    () =>
+      recentIds
+        .map((id) => products.find((product) => product.id === id))
+        .filter((product): product is (typeof products)[number] => Boolean(product))
+        .slice(0, 4),
+    [recentIds, products],
+  );
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0">
-          <img
-            src="https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt="Hero"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-gray-950/85 to-blue-950/60" />
-        </div>
+    <>
+      <Seo
+        title="iPhones et accessoires en Tunisie"
+        description="Fifty Store: iPhones, smartwatches, chargeurs, anticases, powerbanks, ecouteurs et baffles avec livraison en Tunisie."
+        path="/"
+      />
 
-        {/* Animated particles */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full bg-blue-500/10 animate-pulse"
-              style={{
-                width: `${100 + i * 60}px`,
-                height: `${100 + i * 60}px`,
-                top: `${10 + i * 15}%`,
-                left: `${5 + i * 14}%`,
-                animationDelay: `${i * 0.5}s`,
-                animationDuration: `${3 + i}s`,
-              }}
-            />
-          ))}
-        </div>
+      <div className="page-bg min-h-screen pt-28 sm:pt-32">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="frost-panel futuristic-border relative overflow-hidden rounded-[2rem] p-8 shadow-premium sm:p-12">
+            <div className="ultra-grid-bg absolute inset-0 opacity-35" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-32">
-          <div className="max-w-3xl">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-4 py-2 mb-8">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-blue-400 text-sm font-medium">Livraison disponible sur toute la Tunisie 🇹🇳</span>
-            </div>
-
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-tight mb-6">
-              La tech premium
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
-                à portée de main
-              </span>
-            </h1>
-
-            <p className="text-gray-300 text-lg sm:text-xl leading-relaxed mb-10 max-w-xl">
-              Smartphones, accessoires et gadgets tech au meilleur prix en Tunisie.
-              Commandez facilement, payez à la livraison.
-            </p>
-
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => navigate('shop')}
-                className="group px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all duration-200 flex items-center gap-3 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105"
-              >
-                Découvrir la boutique
-                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <a
-                href="https://wa.me/21699400090?text=Bonjour%20Fifty%20Store%20!"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-8 py-4 bg-green-600/20 hover:bg-green-600/30 border border-green-500/40 text-green-400 font-bold rounded-2xl transition-all duration-200 flex items-center gap-3 hover:scale-105"
-              >
-                <MessageCircle size={20} />
-                Commander sur WhatsApp
-              </a>
-            </div>
-
-            {/* Stats */}
-            <div className="flex flex-wrap gap-8 mt-14">
-              {[
-                { value: '500+', label: 'Clients satisfaits' },
-                { value: '200+', label: 'Produits disponibles' },
-                { value: '24h', label: 'Délai de livraison' },
-              ].map(stat => (
-                <div key={stat.label}>
-                  <p className="text-3xl font-black text-white">{stat.value}</p>
-                  <p className="text-gray-400 text-sm mt-0.5">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60">
-          <span className="text-gray-400 text-xs">Scroll</span>
-          <div className="w-5 h-8 border-2 border-gray-600 rounded-full flex justify-center pt-1.5">
-            <div className="w-1 h-2 bg-blue-400 rounded-full animate-bounce" />
-          </div>
-        </div>
-      </section>
-
-      {/* Delivery features */}
-      <section className="py-16 bg-gray-900 border-y border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: <Truck size={24} />, title: 'Livraison rapide', desc: 'Partout en Tunisie', color: 'blue' },
-              { icon: <CreditCard size={24} />, title: 'Cash on Delivery', desc: 'Payez à la livraison', color: 'green' },
-              { icon: <Shield size={24} />, title: 'Produits garantis', desc: '100% authentiques', color: 'cyan' },
-              { icon: <Clock size={24} />, title: 'Support 7j/7', desc: 'Via WhatsApp', color: 'orange' },
-            ].map(feat => (
-              <div key={feat.title} className="flex items-center gap-4 p-5 bg-gray-800/50 rounded-2xl border border-gray-700/50 hover:border-blue-500/30 transition-colors group">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  feat.color === 'blue' ? 'bg-blue-500/20 text-blue-400' :
-                  feat.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                  feat.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400' :
-                  'bg-orange-500/20 text-orange-400'
-                }`}>
-                  {feat.icon}
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-sm">{feat.title}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{feat.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className="py-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">Explorer</span>
-            <h2 className="text-4xl font-black text-white mt-2">Nos Catégories</h2>
-            <p className="text-gray-400 mt-3 max-w-xl mx-auto">Trouvez exactement ce dont vous avez besoin parmi notre sélection premium.</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.filter(c => c.id !== 'all').map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => navigate('shop')}
-                className="group flex flex-col items-center gap-3 p-6 bg-gray-900 border border-gray-800 rounded-2xl hover:border-blue-500/50 hover:bg-gray-800 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/10"
-              >
-                <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-300">
-                  {categoryIcons[cat.id]}
-                </div>
-                <span className="text-gray-300 text-xs font-medium text-center leading-snug group-hover:text-white transition-colors">{cat.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Best Sellers */}
-      <section className="py-20 px-4 sm:px-6 bg-gray-900/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">Top ventes</span>
-              <h2 className="text-4xl font-black text-white mt-2">Meilleures Ventes</h2>
-            </div>
-            <button
-              onClick={() => navigate('shop')}
-              className="hidden sm:flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium transition-colors group"
-            >
-              Tout voir
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {visibleFeaturedProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Promo Banner */}
-      <section className="py-10 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative bg-gradient-to-r from-blue-900 to-blue-700 rounded-3xl overflow-hidden p-8 sm:p-12">
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-0 right-0 w-72 h-72 bg-white rounded-full -translate-y-1/2 translate-x-1/3" />
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/4" />
-            </div>
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="relative z-10 grid items-center gap-10 lg:grid-cols-2">
               <div>
-                <span className="inline-block bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full mb-3">OFFRE LIMITÉE</span>
-                <h3 className="text-white text-3xl sm:text-4xl font-black">Jusqu'à -34%</h3>
-                <p className="text-blue-200 mt-2 text-lg">sur une sélection de produits tech premium</p>
-              </div>
-              <button
-                onClick={() => navigate('shop')}
-                className="flex-shrink-0 px-8 py-4 bg-white text-blue-700 font-bold rounded-2xl hover:bg-blue-50 transition-colors flex items-center gap-2 group"
-              >
-                Profiter des offres
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+                <Reveal>
+                  <p className="hero-badge-pulse inline-flex items-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">
+                    <Truck size={14} /> Livraison rapide sur toute la Tunisie
+                  </p>
+                </Reveal>
 
-      {/* New Arrivals */}
-      <section className="py-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <span className="text-green-400 text-sm font-semibold uppercase tracking-widest">Arrivages</span>
-              <h2 className="text-4xl font-black text-white mt-2">Nouveautés</h2>
-            </div>
-            <button
-              onClick={() => navigate('shop')}
-              className="hidden sm:flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium transition-colors group"
-            >
-              Tout voir
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {visibleNewProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-      </section>
+                <Reveal delay={0.08}>
+                  <h1 className="mt-5 text-4xl font-bold leading-tight text-primary sm:text-5xl lg:text-6xl">
+                    iPhone et accessoires
+                    <br />
+                    <span className="hero-gradient-text hero-electric-glow">aux bons prix en Tunisie</span>
+                  </h1>
+                </Reveal>
 
-      {/* Promotions */}
-      <section className="py-20 px-4 sm:px-6 bg-gray-900/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <span className="text-red-400 text-sm font-semibold uppercase tracking-widest">Prix réduits</span>
-              <h2 className="text-4xl font-black text-white mt-2">Promotions</h2>
-            </div>
-            <button
-              onClick={() => navigate('shop')}
-              className="hidden sm:flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium transition-colors group"
-            >
-              Tout voir
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {promoProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </div>
-      </section>
+                <Reveal delay={0.16}>
+                  <p className="mt-5 max-w-xl text-base leading-relaxed text-secondary sm:text-lg">
+                    تليفونك الجاي؟ خلّيه علينا. Découvrez nos iPhone, smartwatches et accessoires avec prix en TND,
+                    paiement à la livraison et commande rapide via WhatsApp.
+                  </p>
+                </Reveal>
 
-      {/* Testimonials */}
-      <section className="py-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-yellow-400 text-sm font-semibold uppercase tracking-widest">Avis clients</span>
-            <h2 className="text-4xl font-black text-white mt-2">Ils nous font confiance</h2>
-            <div className="flex items-center justify-center gap-1 mt-4">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} size={20} className="fill-yellow-400 text-yellow-400" />
-              ))}
-              <span className="text-gray-400 ml-2 text-sm">4.9/5 basé sur 500+ avis</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {testimonials.map(t => (
-              <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 hover:border-blue-500/30 transition-colors">
-                <div className="flex items-center gap-0.5 mb-4">
-                  {[...Array(t.rating)].map((_, i) => (
-                    <Star key={i} size={14} className="fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-gray-300 text-sm leading-relaxed mb-5 line-clamp-4">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                    {t.avatar}
+                <Reveal delay={0.24}>
+                  <div className="mt-7 flex flex-wrap gap-3">
+                    <MagneticButton>
+                      <Link to="/shop" className="premium-btn hero-cta-glow">
+                        Explorer les offres
+                        <ArrowRight size={16} />
+                      </Link>
+                    </MagneticButton>
+
+                    <MagneticButton>
+                      <a
+                        href={`https://wa.me/${STORE_INFO.whatsappNumber}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="premium-btn-secondary"
+                      >
+                        <MessageCircle size={16} /> Commander sur WhatsApp
+                      </a>
+                    </MagneticButton>
                   </div>
-                  <div>
-                    <p className="text-white font-semibold text-sm">{t.name}</p>
-                    <p className="text-gray-500 text-xs">{t.city}, Tunisie</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+                </Reveal>
 
-      {/* Delivery info */}
-      <section className="py-20 px-4 sm:px-6 bg-gray-900/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-center gap-12">
-            <div className="flex-1">
-              <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">Livraison</span>
-              <h2 className="text-4xl font-black text-white mt-2 mb-6">Livraison sur toute la Tunisie 🇹🇳</h2>
-              <div className="space-y-4">
-                {[
-                  { icon: <Truck size={18} />, title: 'Livraison Express', desc: 'Délai de 24 à 72h selon votre région' },
-                  { icon: <Package size={18} />, title: 'Emballage soigné', desc: 'Vos produits protégés et sécurisés' },
-                  { icon: <CreditCard size={18} />, title: 'Cash on Delivery', desc: 'Payez uniquement à la réception' },
-                  { icon: <MessageCircle size={18} />, title: 'Suivi WhatsApp', desc: 'Suivi en temps réel de votre commande' },
-                ].map(item => (
-                  <div key={item.title} className="flex items-center gap-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
-                    <div className="w-10 h-10 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center flex-shrink-0">
-                      {item.icon}
+                <Reveal delay={0.32}>
+                  <div className="mt-8 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+                    <div className="glass-card hero-card-pop rounded-2xl p-4 text-center">
+                      <CreditCard size={20} className="mx-auto text-fuchsia-500" />
+                      <p className="mt-2 font-bold text-primary">Paiement</p>
+                      <p className="text-muted">à la livraison</p>
                     </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm">{item.title}</p>
-                      <p className="text-gray-400 text-xs">{item.desc}</p>
+                    <div className="glass-card hero-card-pop rounded-2xl p-4 text-center">
+                      <Truck size={20} className="mx-auto text-cyan-400" />
+                      <p className="mt-2 font-bold text-primary">Livraison</p>
+                      <p className="text-muted">toute la Tunisie</p>
+                    </div>
+                    <div className="glass-card hero-card-pop rounded-2xl p-4 text-center">
+                      <MessageCircle size={20} className="mx-auto text-emerald-500" />
+                      <p className="mt-2 font-bold text-primary">Conseil</p>
+                      <p className="text-muted">sur WhatsApp</p>
                     </div>
                   </div>
+                </Reveal>
+              </div>
+
+              <Reveal delay={0.16} className="relative">
+                <div className="hero-image-float hero-image-glow animated-light-sheen overflow-hidden rounded-3xl border border-soft">
+                  {heroProduct ? (
+                    <Link to={`/product/${heroProduct.id}`} className="group relative block min-h-[400px] sm:min-h-[500px]">
+                      <OptimizedImage
+                        src={heroProduct.image}
+                        alt={`${heroProduct.name} disponible chez Fifty Store`}
+                        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                        priority
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
+                        {heroProduct.discount ? (
+                          <span className="inline-flex rounded-full bg-rose-500 px-3 py-1 text-xs font-bold">
+                            -{heroProduct.discount}% Offre
+                          </span>
+                        ) : null}
+                        <p className="mt-3 text-2xl font-bold">{heroProduct.name}</p>
+                        <div className="mt-2 flex items-center gap-3">
+                          <p className="text-2xl font-extrabold">{formatPrice(heroProduct.price)}</p>
+                          {heroProduct.oldPrice ? (
+                            <p className="text-sm text-white/70 line-through">{formatPrice(heroProduct.oldPrice)}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Link>
+                  ) : null}
+                </div>
+
+                <div className="hero-float-tag absolute -left-3 top-8 hidden rounded-2xl border border-soft bg-surface-strong px-4 py-3 text-xs font-semibold text-primary shadow-premium sm:block">
+                  Paiement à la livraison
+                </div>
+                <div className="hero-float-tag absolute -right-3 top-16 hidden rounded-2xl border border-soft bg-surface-strong px-4 py-3 text-xs font-semibold text-primary shadow-premium sm:block [animation-delay:300ms]">
+                  24-72h livraison
+                </div>
+                <div className="hero-float-tag absolute -left-2 bottom-20 hidden rounded-2xl border border-soft bg-surface-strong px-4 py-3 text-xs font-semibold text-primary shadow-premium sm:block [animation-delay:600ms]">
+                  Support WhatsApp
+                </div>
+                <div className="hero-float-tag absolute right-4 -bottom-5 hidden rounded-2xl border border-soft bg-surface-strong px-4 py-3 text-xs font-semibold text-primary shadow-premium sm:block [animation-delay:900ms]">
+                  Prix affichés en TND
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+          <Reveal>
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-fuchsia-500">
+                  <BadgePercent size={14} /> Promotions
+                </p>
+                <h2 className="mt-2 text-3xl font-bold text-primary">
+                  Deals à saisir {maxDiscount > 0 ? `jusqu'à -${maxDiscount}%` : ''}
+                </h2>
+                <p className="mt-2 text-sm text-muted">Prix promotionnels affichés directement sur les produits disponibles.</p>
+              </div>
+              <Link to="/shop" className="premium-btn-secondary">
+                Toutes les offres <ArrowRight size={16} />
+              </Link>
+            </div>
+          </Reveal>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            {loading
+              ? Array.from({ length: 3 }).map((_, index) => <ProductCardSkeleton key={index} />)
+              : featuredDeals.map((product) => (
+                  <Link
+                    key={product.id}
+                    to={`/product/${product.id}`}
+                    className="group grid grid-cols-[112px_1fr] overflow-hidden rounded-2xl border border-soft bg-surface transition hover:-translate-y-1 hover:shadow-premium"
+                  >
+                    <OptimizedImage
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full min-h-[128px] w-full object-cover transition duration-500 group-hover:scale-105"
+                      sizes="112px"
+                    />
+                    <div className="flex min-w-0 flex-col justify-center p-4">
+                      <p className="inline-flex w-fit items-center gap-1 rounded-full bg-rose-500 px-2 py-1 text-[11px] font-bold text-white">
+                        <Flame size={12} /> -{product.discount}%
+                      </p>
+                      <h3 className="mt-2 line-clamp-2 text-sm font-bold text-primary">{product.name}</h3>
+                      <p className="mt-2 text-lg font-extrabold text-primary">{formatPrice(product.price)}</p>
+                      {product.oldPrice ? (
+                        <p className="text-xs text-muted line-through">{formatPrice(product.oldPrice)}</p>
+                      ) : null}
+                    </div>
+                  </Link>
+                ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+          <Reveal>
+            <article className="frost-panel rounded-3xl border border-soft p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {tunisianSlogans.map((slogan, index) => (
+                  <span
+                    key={slogan}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      index % 2 === 0 ? 'bg-fuchsia-500/15 text-fuchsia-500' : 'bg-cyan-500/15 text-cyan-400'
+                    }`}
+                  >
+                    {slogan}
+                  </span>
                 ))}
               </div>
-            </div>
-            <div className="flex-1 relative">
-              <div className="relative rounded-3xl overflow-hidden aspect-video lg:aspect-square max-w-lg mx-auto">
-                <img
-                  src="https://images.pexels.com/photos/4246120/pexels-photo-4246120.jpeg?auto=compress&cs=tinysrgb&w=800"
-                  alt="Livraison Tunisie"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-950/60 to-transparent" />
-              </div>
-              <div className="absolute -bottom-4 -right-4 bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl">
-                <p className="font-black text-2xl">24h</p>
-                <p className="text-green-200 text-xs">Délai moyen</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+            </article>
+          </Reveal>
+        </section>
 
-      {/* FAQ */}
-      <section className="py-20 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">FAQ</span>
-            <h2 className="text-4xl font-black text-white mt-2">Questions fréquentes</h2>
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <SetupBuilder />
+        </Suspense>
+
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <PhoneMatchQuiz />
+        </Suspense>
+
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <AIProductRecommender />
+        </Suspense>
+
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <DeliverySection />
+        </Suspense>
+
+        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400">Top ventes</p>
+              <h2 className="mt-2 text-3xl font-bold text-primary">Best sellers</h2>
+            </div>
+            <Link to="/shop" className="text-sm font-semibold text-cyan-400 hover:text-cyan-300">
+              Voir tout
+            </Link>
           </div>
-          <div className="space-y-3">
-            {faqs.map((faq, i) => (
-              <div
-                key={i}
-                className={`bg-gray-900 border rounded-2xl overflow-hidden transition-colors ${
-                  openFaq === i ? 'border-blue-500/50' : 'border-gray-800 hover:border-gray-700'
-                }`}
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between px-6 py-5 text-left"
-                >
-                  <span className="text-white font-semibold text-sm pr-4">{faq.question}</span>
-                  {openFaq === i
-                    ? <ChevronUp size={18} className="text-blue-400 flex-shrink-0" />
-                    : <ChevronDown size={18} className="text-gray-500 flex-shrink-0" />}
-                </button>
-                {openFaq === i && (
-                  <div className="px-6 pb-5">
-                    <p className="text-gray-400 text-sm leading-relaxed">{faq.answer}</p>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {loading
+              ? Array.from({ length: 8 }).map((_, index) => <ProductCardSkeleton key={index} />)
+              : bestSellers.map((product) => <ProductCard key={product.id} product={product} />)}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-500">Tendance</p>
+              <h2 className="mt-2 text-3xl font-bold text-primary">Produits trending</h2>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-soft bg-surface-strong px-3 py-1 text-xs font-semibold text-secondary">
+              <TrendingUp size={14} className="text-cyan-400" /> Sélection catalogue
+            </span>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {loading
+              ? Array.from({ length: 4 }).map((_, index) => <ProductCardSkeleton key={index} />)
+              : trendingProducts.map((product) => <ProductCard key={product.id} product={product} />)}
+          </div>
+        </section>
+
+        {recentlyViewedProducts.length > 0 ? (
+          <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+            <div className="mb-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400">Historique</p>
+              <h2 className="mt-2 text-2xl font-bold text-primary">Produits consultes recemment</h2>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {recentlyViewedProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <article className="glass-card rounded-3xl p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-500">Nouveautes</p>
+              <h3 className="mt-2 text-2xl font-bold text-primary">Produits recents</h3>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {loading
+                  ? Array.from({ length: 4 }).map((_, index) => <ProductCardSkeleton key={index} />)
+                  : newArrivals.map((product) => <ProductCard key={product.id} product={product} />)}
+              </div>
+            </article>
+
+            <article className="glass-card overflow-hidden rounded-3xl p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-500">Produit du jour</p>
+              <h3 className="mt-2 text-2xl font-bold text-primary">La sélection Fifty Store</h3>
+              {productOfTheDay ? (
+                <div className="mt-5 grid gap-4 sm:grid-cols-[148px_1fr]">
+                  <Link to={`/product/${productOfTheDay.id}`} className="overflow-hidden rounded-2xl border border-soft">
+                    <OptimizedImage
+                      src={productOfTheDay.image}
+                      alt={productOfTheDay.name}
+                      className="aspect-square h-full w-full object-cover transition duration-500 hover:scale-105"
+                      sizes="148px"
+                    />
+                  </Link>
+                  <div>
+                    {productOfTheDay.discount ? (
+                      <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
+                        -{productOfTheDay.discount}%
+                      </span>
+                    ) : null}
+                    <h4 className="mt-3 text-lg font-bold text-primary">{productOfTheDay.name}</h4>
+                    <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+                      <Star size={14} className="fill-amber-400 text-amber-400" />
+                      {productOfTheDay.rating.toFixed(1)} ({productOfTheDay.reviews} avis)
+                    </div>
+                    <p className="mt-3 text-2xl font-extrabold text-primary">{formatPrice(productOfTheDay.price)}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link to={`/product/${productOfTheDay.id}`} className="premium-btn-secondary !px-3 !py-2 text-xs">
+                        Voir produit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => openWhatsApp(buildDirectProductMessage(productOfTheDay))}
+                        className="premium-btn !px-3 !py-2 text-xs"
+                      >
+                        <MessageCircle size={14} /> Commander
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              ) : null}
+            </article>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* WhatsApp CTA */}
-      <section className="py-20 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="relative bg-gray-900 border border-gray-800 rounded-3xl p-12 overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600" />
-            <div className="w-16 h-16 bg-green-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <MessageCircle size={32} className="text-green-400" />
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Commandez via WhatsApp</h2>
-            <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
-              Envoyez-nous un message sur WhatsApp pour commander, poser vos questions ou obtenir un conseil personnalisé. Réponse rapide garantie !
-            </p>
-            <a
-              href="https://wa.me/21699400090?text=Bonjour%20Fifty%20Store%20!%20Je%20souhaite%20commander."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-10 py-4 bg-green-600 hover:bg-green-500 text-white font-bold text-lg rounded-2xl transition-all duration-200 hover:scale-105 shadow-lg shadow-green-500/25"
-            >
-              <MessageCircle size={22} />
-              Contacter sur WhatsApp
-            </a>
-            <p className="text-gray-500 text-sm mt-4">+216 99 400 090 — Réponse en quelques minutes</p>
+        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <article className="glass-card rounded-3xl p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-500">FAQ</p>
+              <h3 className="mt-2 text-2xl font-bold text-primary">Questions frequentes</h3>
+              <div className="mt-4 space-y-3">
+                {faqs.map((faq) => (
+                  <details key={faq.question} className="card-strong rounded-xl p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-primary">{faq.question}</summary>
+                    <p className="mt-2 text-sm text-muted">{faq.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </article>
+
+            <article className="glass-card rounded-3xl p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-500">Service & securite</p>
+              <h3 className="mt-2 text-2xl font-bold text-primary">Pourquoi Fifty Store ?</h3>
+              <ul className="mt-4 space-y-3 text-sm text-secondary">
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={16} className="mt-0.5 text-cyan-400" />
+                  Produits testes et selectionnes pour une qualite stable.
+                </li>
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={16} className="mt-0.5 text-cyan-400" />
+                  Confirmation rapide et suivi de commande via WhatsApp.
+                </li>
+                <li className="inline-flex items-start gap-2">
+                  <ShieldCheck size={16} className="mt-0.5 text-cyan-400" />
+                  Livraison nationale avec paiement a la reception.
+                </li>
+              </ul>
+
+              <a
+                href={`https://wa.me/${STORE_INFO.whatsappNumber}?text=Bonjour%20Fifty%20Store,%20je%20souhaite%20commander.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="premium-btn mt-5"
+              >
+                <MessageCircle size={16} /> Demarrer sur WhatsApp
+              </a>
+            </article>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <InstagramShowcase />
+        </Suspense>
+
+        <Suspense fallback={<DeferredSectionFallback />}>
+          <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
+            <StoreLocation />
+          </section>
+        </Suspense>
+      </div>
+    </>
   );
 }

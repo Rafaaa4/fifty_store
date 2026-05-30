@@ -20,6 +20,9 @@ export const env = {
     email: process.env.ADMIN_EMAIL?.trim().toLowerCase(),
     password: process.env.ADMIN_PASSWORD,
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID?.trim(),
+  },
 };
 
 export const isProduction = env.nodeEnv === 'production';

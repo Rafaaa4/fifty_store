@@ -106,6 +106,14 @@ export async function migrate() {
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
 
+    ALTER TABLE customers
+    ALTER COLUMN password_hash DROP NOT NULL;
+
+    ALTER TABLE customers
+    ADD COLUMN IF NOT EXISTS google_sub TEXT UNIQUE,
+    ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'password',
+    ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
     CREATE INDEX IF NOT EXISTS orders_status_created_idx ON orders(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS orders_user_created_idx ON orders(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS order_items_order_id_idx ON order_items(order_id);

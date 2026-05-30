@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { authenticateCustomer } from '../middleware/authenticateCustomer.js';
-import { loginCustomer, signupCustomer } from '../services/customerService.js';
+import { loginCustomer, loginCustomerWithGoogle, signupCustomer } from '../services/customerService.js';
 import { listCustomerOrders } from '../services/orderService.js';
-import { customerLoginSchema, customerSignupSchema } from '../validation/customerSchemas.js';
+import { customerGoogleSchema, customerLoginSchema, customerSignupSchema } from '../validation/customerSchemas.js';
 
 export const customerRouter = Router();
 
@@ -33,6 +33,22 @@ customerRouter.post('/login', async (req, res) => {
 
   if (!session) {
     return res.status(401).json({ message: 'Invalid email or password' });
+  }
+
+  return res.json(session);
+});
+
+customerRouter.post('/google', async (req, res) => {
+  const parsed = customerGoogleSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ message: 'Invalid Google credential' });
+  }
+
+  const session = await loginCustomerWithGoogle(parsed.data.credential);
+
+  if (!session) {
+    return res.status(401).json({ message: 'Google login failed' });
   }
 
   return res.json(session);

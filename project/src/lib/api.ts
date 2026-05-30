@@ -1,5 +1,5 @@
-import { CartItem } from '../context/CartContext';
-import { Product } from '../data/products';
+import type { CartItem } from '../context/CartContext';
+import type { Product } from '../data/products';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CUSTOMER_TOKEN_KEY = 'fifty_customer_token';
@@ -46,10 +46,13 @@ interface OrderForm {
   notes: string;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, tokenType: 'customer' | 'none' = 'customer'): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
-  const token = localStorage.getItem(CUSTOMER_TOKEN_KEY);
+  if (!(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const token = tokenType === 'customer' ? localStorage.getItem(CUSTOMER_TOKEN_KEY) : null;
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -97,6 +100,15 @@ export async function loginCustomer(email: string, password: string) {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+
+  return storeCustomerSession(data);
+}
+
+export async function loginCustomerWithGoogle(credential: string) {
+  const data = await request<{ token: string; user: Customer }>('/customer/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential }),
+  }, 'none');
 
   return storeCustomerSession(data);
 }
@@ -161,13 +173,21 @@ export async function createRepairRequest(form: {
   });
 }
 
+export function resolveAssetUrl(url: string | null | undefined) {
+  if (!url) return '';
+  return url.startsWith('/uploads') ? `${API_ORIGIN}${url}` : url;
+}
+
 export async function fetchProducts() {
-  const data = await request<{ products: Product[] }>('/products');
+  const data = await request<{ products: Product[] }>('/products', {}, 'none');
   return {
-    products: data.products.map((product) => ({
-      ...product,
-      image: product.image.startsWith('/uploads') ? `${API_ORIGIN}${product.image}` : product.image,
-      images: product.images?.map((image) => (image.startsWith('/uploads') ? `${API_ORIGIN}${image}` : image)),
-    })),
+    products: data.products.map((product) => {
+      const image = resolveAssetUrl(product.image);
+      return {
+        ...product,
+        image,
+        images: product.images?.map(resolveAssetUrl) || [image],
+      };
+    }),
   };
 }

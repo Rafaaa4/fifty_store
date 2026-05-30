@@ -1,331 +1,305 @@
+﻿import { CheckCircle2, MessageCircle, ShoppingBag, Truck } from 'lucide-react';
 import { useState } from 'react';
-import { MessageCircle, Check, Truck, CreditCard, Package, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import Seo from '../components/Seo';
+import OptimizedImage from '../components/ui/OptimizedImage';
 import { useCart } from '../context/CartContext';
-import { useApp } from '../context/AppContext';
-import { useAuth } from '../context/AuthContext';
-import { createOrder } from '../lib/api';
+import { STORE_INFO, tunisianCities } from '../data/store';
+import { createBackendOrder } from '../services/orderService';
+import { formatPrice } from '../utils/format';
+import { buildWhatsAppOrderMessage, openWhatsApp } from '../utils/whatsapp';
 
-interface FormData {
+interface CheckoutForm {
   fullName: string;
   phone: string;
-  address: string;
   city: string;
+  address: string;
   notes: string;
 }
 
+const DELIVERY_FEE = 8;
+
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
-  const { navigate } = useApp();
-  const { user } = useAuth();
-  const [form, setForm] = useState<FormData>({
-    fullName: user?.fullName || '', phone: user?.phone || '', address: '', city: '', notes: '',
+  const [completed, setCompleted] = useState(false);
+  const [form, setForm] = useState<CheckoutForm>({
+    fullName: '',
+    phone: '',
+    city: '',
+    address: '',
+    notes: '',
   });
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderId, setOrderId] = useState<number | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
 
-  const deliveryFee = items.length > 0 ? 8 : 0;
-  const total = totalPrice + deliveryFee;
+  const orderTotal = totalPrice + (items.length > 0 ? DELIVERY_FEE : 0);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const onFieldChange = (field: keyof CheckoutForm, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const buildWhatsAppMessage = () => {
-    const productLines = items.map(item =>
-      `• ${item.product.name} x${item.quantity} — ${item.product.price * item.quantity} TND`
-    ).join('\n');
+  const hasMissingRequiredFields = !form.fullName.trim() || !form.phone.trim() || !form.city.trim() || !form.address.trim();
 
-    return encodeURIComponent(
-      `🛒 *Nouvelle commande — Fifty Store*\n\n` +
-      `👤 *Client :* ${form.fullName}\n` +
-      `📞 *Téléphone :* ${form.phone}\n` +
-      `📍 *Adresse :* ${form.address}\n` +
-      `🏙️ *Ville :* ${form.city}\n` +
-      (form.notes ? `📝 *Notes :* ${form.notes}\n` : '') +
-      `\n🛍️ *Produits commandés :*\n${productLines}\n\n` +
-      `📦 *Livraison :* ~${deliveryFee} TND\n` +
-      `💰 *Total :* ${total} TND\n\n` +
-      `💵 *Paiement :* Cash on Delivery\n\n` +
-      `Merci Fifty Store ! 🙏`
+  const validateForm = () => {
+    if (items.length === 0) {
+      toast.error('Votre panier est vide.');
+      return false;
+    }
+
+    if (hasMissingRequiredFields) {
+      toast.error('Formulaire incomplet: veuillez remplir les champs obligatoires.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleWhatsAppCheckout = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    const whatsappMessage = buildWhatsAppOrderMessage(
+      {
+        fullName: form.fullName,
+        phone: form.phone,
+        city: form.city,
+        address: form.address,
+        notes: form.notes,
+      },
+      items,
+      orderTotal,
     );
+
+    const orderSaved = await createBackendOrder({
+      fullName: form.fullName,
+      phone: form.phone,
+      city: form.city,
+      address: form.address,
+      notes: form.notes,
+      items,
+      total: orderTotal,
+      paymentMethod: STORE_INFO.paymentLabel,
+      deliveryMethod: STORE_INFO.deliveryLabel,
+    });
+
+    openWhatsApp(whatsappMessage);
+    toast.success('Commande WhatsApp ouverte');
+    if (orderSaved) {
+      toast.success('Commande enregistree sur le serveur.');
+    }
+    clearCart(true);
+    setCompleted(true);
   };
 
-  const submitOrder = async () => {
-    if (!form.fullName || !form.phone || !form.address || !form.city) {
-      throw new Error('Veuillez remplir tous les champs obligatoires.');
+  const handleStandardConfirmation = async () => {
+    if (!validateForm()) {
+      return;
     }
 
-    const data = await createOrder(form, items, deliveryFee);
-    setOrderId(data.order.id);
-    setOrderPlaced(true);
-    clearCart();
-    return data.order;
-  };
+    const orderSaved = await createBackendOrder({
+      fullName: form.fullName,
+      phone: form.phone,
+      city: form.city,
+      address: form.address,
+      notes: form.notes,
+      items,
+      total: orderTotal,
+      paymentMethod: STORE_INFO.paymentLabel,
+      deliveryMethod: STORE_INFO.deliveryLabel,
+    });
 
-  const handleWhatsAppOrder = async () => {
-    setSubmitError('');
-    setIsSubmitting(true);
-    try {
-      await submitOrder();
-      const msg = buildWhatsAppMessage();
-      window.open(`https://wa.me/21699400090?text=${msg}`, '_blank');
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Impossible de confirmer la commande.');
-    } finally {
-      setIsSubmitting(false);
+    toast.success('Commande enregistree. Notre equipe vous contacte sur WhatsApp.');
+    if (orderSaved) {
+      toast.success('Commande synchronisee avec la base de donnees.');
     }
+    clearCart(true);
+    setCompleted(true);
   };
 
-  const handleFormOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError('');
-    setIsSubmitting(true);
-    try {
-      await submitOrder();
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Impossible de confirmer la commande.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (orderPlaced) {
+  if (completed) {
     return (
-      <div className="min-h-screen bg-gray-950 pt-20 flex items-center justify-center px-4">
-        <div className="text-center max-w-md mx-auto">
-          <div className="w-24 h-24 bg-green-600/20 border border-green-500/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-            <Check size={40} className="text-green-400" />
-          </div>
-          <h2 className="text-3xl font-black text-white mb-4">Commande confirmée !</h2>
-          <p className="text-gray-400 text-lg mb-3">
-            Merci <span className="text-white font-semibold">{form.fullName || 'cher client'}</span> !
-          </p>
-          <p className="text-gray-400 mb-8">
-            Votre commande a été transmise. Notre équipe vous contactera très prochainement au{' '}
-            <span className="text-white font-semibold">{form.phone || 'numéro indiqué'}</span> pour confirmer la livraison.
-          </p>
-          {orderId && (
-            <p className="text-blue-300 font-bold mb-8">Référence commande #{orderId}</p>
-          )}
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('home')}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-colors"
-            >
-              Retour à l'accueil
-            </button>
-            <button
-              onClick={() => navigate('shop')}
-              className="w-full py-4 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white font-medium rounded-2xl transition-colors"
-            >
-              Continuer mes achats
-            </button>
-          </div>
+      <>
+        <Seo title="Commande confirmee" description="Votre commande Fifty Store a ete enregistree." path="/checkout" />
+        <div className="page-bg flex min-h-screen items-center justify-center px-4 pt-28 sm:pt-32">
+          <section className="glass-card w-full max-w-xl rounded-3xl p-10 text-center">
+            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+              <CheckCircle2 size={32} />
+            </div>
+            <h1 className="mt-4 text-3xl font-bold text-primary">Commande confirmee</h1>
+            <p className="mt-3 text-sm text-muted">
+              Merci {form.fullName}. Votre demande a bien ete recue. Nous allons vous contacter rapidement au {form.phone}.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link to="/" className="premium-btn">
+                Retour accueil
+              </Link>
+              <Link to="/shop" className="premium-btn-secondary">
+                Continuer mes achats
+              </Link>
+            </div>
+          </section>
         </div>
-      </div>
+      </>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-950 pt-20 flex items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-gray-400 text-lg mb-4">Votre panier est vide.</p>
-          <button onClick={() => navigate('shop')} className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-500 transition-colors">
-            Voir la boutique
-          </button>
+      <>
+        <Seo title="Checkout" description="Finalisez votre commande Fifty Store." path="/checkout" />
+        <div className="page-bg flex min-h-screen items-center justify-center px-4 pt-28 sm:pt-32">
+          <section className="glass-card w-full max-w-xl rounded-3xl p-10 text-center">
+            <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-soft bg-surface">
+              <ShoppingBag className="text-muted" />
+            </div>
+            <h1 className="mt-4 text-2xl font-bold text-primary">Votre panier est vide</h1>
+            <p className="mt-3 text-sm text-muted">Ajoutez des produits avant de passer au checkout.</p>
+            <Link to="/shop" className="premium-btn mt-6 inline-flex">
+              Voir la boutique
+            </Link>
+          </section>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => navigate('cart')} className="text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-3xl font-black text-white">Finaliser la commande</h1>
-            <p className="text-gray-400 text-sm">Remplissez vos informations de livraison</p>
-          </div>
-        </div>
+    <>
+      <Seo title="Checkout" description="Finalisez votre commande Fifty Store et confirmez via WhatsApp." path="/checkout" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleFormOrder} className="space-y-6">
-              {/* Delivery info */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-                <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
-                  <Truck size={20} className="text-blue-400" />
-                  Informations de livraison
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-gray-400 text-sm mb-2">
-                      Nom complet <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={form.fullName}
-                      onChange={handleChange}
-                      required
-                      placeholder="Ex: Mohamed Ben Ali"
-                      className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 transition-colors text-sm placeholder-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">
-                      Téléphone <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={form.phone}
-                      onChange={handleChange}
-                      required
-                      placeholder="+216 XX XXX XXX"
-                      className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 transition-colors text-sm placeholder-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">
-                      Ville <span className="text-red-400">*</span>
-                    </label>
-                    <select
-                      name="city"
-                      value={form.city}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 transition-colors text-sm appearance-none"
-                    >
-                      <option value="">Sélectionner une ville</option>
-                      {['Tunis', 'Sfax', 'Sousse', 'Bizerte', 'Monastir', 'Nabeul', 'Gabès', 'Ariana', 'Ben Arous', 'Manouba', 'Gafsa', 'Kasserine', 'Kairouan', 'Béja', 'Jendouba', 'Le Kef', 'Siliana', 'Mahdia', 'Sidi Bouzid', 'Médenine', 'Tataouine', 'Tozeur', 'Kébili', 'Zaghouan'].map(city => (
-                        <option key={city} value={city}>{city}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-gray-400 text-sm mb-2">
-                      Adresse complète <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={form.address}
-                      onChange={handleChange}
-                      required
-                      placeholder="Rue, numéro, quartier..."
-                      className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 transition-colors text-sm placeholder-gray-600"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-gray-400 text-sm mb-2">Notes supplémentaires</label>
-                    <textarea
-                      name="notes"
-                      value={form.notes}
-                      onChange={handleChange}
-                      rows={3}
-                      placeholder="Instructions de livraison, étage, code d'accès..."
-                      className="w-full bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl outline-none focus:border-blue-500 transition-colors text-sm placeholder-gray-600 resize-none"
-                    />
-                  </div>
+      <div className="page-bg min-h-screen pt-28 sm:pt-32">
+        <div className="mx-auto max-w-7xl px-4 pb-14 sm:px-6">
+          <h1 className="text-3xl font-bold text-primary">Finaliser la commande</h1>
+          <p className="mt-1 text-sm text-muted">Informations client + confirmation WhatsApp</p>
+
+          <div className="mt-7 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+            <section className="glass-card rounded-3xl p-6">
+              <h2 className="text-xl font-bold text-primary">Informations de livraison</h2>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-semibold text-secondary">Nom complet *</label>
+                  <input
+                    type="text"
+                    value={form.fullName}
+                    onChange={(event) => onFieldChange('fullName', event.target.value)}
+                    className="w-full rounded-xl border border-soft bg-surface-strong px-3 py-3 text-sm text-primary outline-none"
+                    placeholder="Exemple: Ahmed Ben Ali"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-secondary">Telephone *</label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(event) => onFieldChange('phone', event.target.value)}
+                    className="w-full rounded-xl border border-soft bg-surface-strong px-3 py-3 text-sm text-primary outline-none"
+                    placeholder="+216 XX XXX XXX"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-secondary">Ville *</label>
+                  <select
+                    value={form.city}
+                    onChange={(event) => onFieldChange('city', event.target.value)}
+                    className="w-full rounded-xl border border-soft bg-surface-strong px-3 py-3 text-sm text-primary outline-none"
+                  >
+                    <option value="">Selectionner</option>
+                    {tunisianCities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-semibold text-secondary">Adresse complete *</label>
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={(event) => onFieldChange('address', event.target.value)}
+                    className="w-full rounded-xl border border-soft bg-surface-strong px-3 py-3 text-sm text-primary outline-none"
+                    placeholder="Rue, quartier, immeuble..."
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-semibold text-secondary">Notes</label>
+                  <textarea
+                    rows={4}
+                    value={form.notes}
+                    onChange={(event) => onFieldChange('notes', event.target.value)}
+                    className="w-full rounded-xl border border-soft bg-surface-strong px-3 py-3 text-sm text-primary outline-none"
+                    placeholder="Instructions de livraison optionnelles"
+                  />
                 </div>
               </div>
 
-              {/* Payment method */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-                <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                  <CreditCard size={20} className="text-blue-400" />
-                  Mode de paiement
-                </h2>
-                <div className="flex items-center gap-4 p-4 bg-green-600/10 border border-green-500/30 rounded-xl">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Check size={12} className="text-white" />
-                  </div>
-                  <div>
-                    <p className="text-white font-semibold text-sm">Cash on Delivery</p>
-                    <p className="text-gray-400 text-xs">Payez en espèces à la réception de votre commande</p>
-                  </div>
-                </div>
+              <div className="mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4">
+                <p className="text-sm font-semibold text-primary">Mode de paiement: {STORE_INFO.paymentLabel}</p>
+                <p className="mt-1 text-xs text-muted">Vous payez uniquement a la reception.</p>
               </div>
 
-              {/* Submit buttons */}
-              <div className="space-y-3">
-                {submitError && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                    {submitError}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={handleWhatsAppOrder}
-                  disabled={isSubmitting}
-                  className="w-full py-5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-2xl transition-all duration-200 flex items-center justify-center gap-3 text-lg hover:scale-[1.02] shadow-lg shadow-green-500/20"
-                >
-                  <MessageCircle size={22} />
-                  {isSubmitting ? 'Confirmation...' : 'Commander via WhatsApp'}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button type="button" onClick={handleWhatsAppCheckout} className="premium-btn justify-center">
+                  <MessageCircle size={16} /> Commander via WhatsApp
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <Package size={18} />
-                  {isSubmitting ? 'Envoi...' : 'Confirmer la commande'}
+                <button type="button" onClick={handleStandardConfirmation} className="premium-btn-secondary justify-center">
+                  Confirmer sans WhatsApp
                 </button>
               </div>
-            </form>
-          </div>
+            </section>
 
-          {/* Order summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 sticky top-24">
-              <h2 className="text-white font-bold text-lg mb-5">Votre commande</h2>
-              <div className="space-y-4 mb-6">
-                {items.map(item => (
-                  <div key={item.product.id} className="flex gap-3">
-                    <div className="relative flex-shrink-0">
-                      <img
-                        src={item.product.image}
-                        alt={item.product.name}
-                        className="w-14 h-14 object-cover rounded-xl"
-                      />
-                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                        {item.quantity}
-                      </span>
+            <aside className="glass-card h-fit rounded-3xl p-5 lg:sticky lg:top-32">
+              <h2 className="text-xl font-bold text-primary">Recapitulatif</h2>
+
+              <div className="mt-4 space-y-3">
+                {items.map((item) => (
+                  <div key={item.product.id} className="flex items-center gap-3 rounded-xl border border-soft bg-surface-strong p-2">
+                    <OptimizedImage
+                      src={item.product.image}
+                      alt={item.product.name}
+                      className="h-12 w-12 rounded-lg object-cover"
+                      sizes="48px"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-1 text-sm font-semibold text-primary">{item.product.name}</p>
+                      <p className="text-xs text-muted">
+                        {item.quantity} x {formatPrice(item.product.price)}
+                      </p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs font-semibold line-clamp-2">{item.product.name}</p>
-                      <p className="text-blue-400 text-sm font-bold mt-1">{(item.product.price * item.quantity).toLocaleString()} TND</p>
-                    </div>
+                    <p className="text-sm font-bold text-primary">{formatPrice(item.product.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
-              <div className="border-t border-gray-800 pt-4 space-y-2 text-sm">
-                <div className="flex justify-between text-gray-400">
+
+              <div className="mt-5 space-y-2 border-t border-soft pt-4 text-sm">
+                <div className="flex justify-between text-muted">
                   <span>Sous-total</span>
-                  <span className="text-white">{totalPrice.toLocaleString()} TND</span>
+                  <span className="text-primary">{formatPrice(totalPrice)}</span>
                 </div>
-                <div className="flex justify-between text-gray-400">
+                <div className="flex justify-between text-muted">
                   <span>Livraison</span>
-                  <span className="text-green-400">~{deliveryFee} TND</span>
+                  <span className="text-primary">{formatPrice(DELIVERY_FEE)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-800">
-                  <span className="text-gray-300">Total</span>
-                  <span className="text-white">{total.toLocaleString()} TND</span>
+                <div className="flex justify-between border-t border-soft pt-3 text-base font-bold text-primary">
+                  <span>Total</span>
+                  <span>{formatPrice(orderTotal)}</span>
                 </div>
               </div>
-            </div>
+
+              <div className="mt-4 rounded-xl border border-soft bg-surface p-3 text-xs text-secondary">
+                <p className="inline-flex items-center gap-2">
+                  <Truck size={14} className="text-fuchsia-500" /> {STORE_INFO.deliveryLabel}
+                </p>
+              </div>
+            </aside>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

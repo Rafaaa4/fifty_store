@@ -1,125 +1,140 @@
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
+﻿import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { useApp } from '../context/AppContext';
+import { formatPrice } from '../utils/format';
+import OptimizedImage from './ui/OptimizedImage';
 
 export default function CartSidebar() {
-  const { items, removeFromCart, updateQuantity, totalPrice, totalItems, isCartOpen, setIsCartOpen } = useCart();
-  const { navigate } = useApp();
+  const navigate = useNavigate();
+  const { items, updateQuantity, removeFromCart, totalItems, totalPrice, isCartOpen, setIsCartOpen } = useCart();
 
   return (
     <>
-      {/* Overlay */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 ${
-          isCartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm transition-opacity ${
+          isCartOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={() => setIsCartOpen(false)}
       />
 
-      {/* Sidebar */}
-      <div className={`fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-950 border-l border-gray-800 z-50 flex flex-col transition-transform duration-300 ${
-        isCartOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <ShoppingBag size={16} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-lg">Mon Panier</h2>
-              <p className="text-gray-400 text-xs">{totalItems} article{totalItems !== 1 ? 's' : ''}</p>
-            </div>
+      <aside
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-soft bg-surface-strong shadow-premium transition-transform ${
+          isCartOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-soft px-5 py-4">
+          <div>
+            <h2 className="text-xl font-bold text-primary">Mon panier</h2>
+            <p className="text-xs text-muted">{totalItems} article(s)</p>
           </div>
           <button
+            type="button"
             onClick={() => setIsCartOpen(false)}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-colors"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-soft text-secondary hover:text-primary"
+            aria-label="Fermer panier"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Items */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                <ShoppingBag size={32} className="text-gray-600" />
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <div className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-soft bg-surface">
+                <ShoppingBag className="text-muted" />
               </div>
-              <p className="text-gray-400 font-medium">Votre panier est vide</p>
-              <p className="text-gray-600 text-sm mt-1">Ajoutez des produits pour commencer</p>
+              <h3 className="mt-4 text-lg font-bold text-primary">Panier vide</h3>
+              <p className="mt-1 text-sm text-muted">Ajoutez des produits pour commencer.</p>
               <button
-                onClick={() => { navigate('shop'); setIsCartOpen(false); }}
-                className="mt-6 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-500 transition-colors"
+                type="button"
+                onClick={() => {
+                  navigate('/shop');
+                  setIsCartOpen(false);
+                }}
+                className="premium-btn mt-5"
               >
                 Voir la boutique
               </button>
             </div>
           ) : (
-            items.map(item => (
-              <div key={item.product.id} className="flex gap-4 bg-gray-900 rounded-2xl p-4 group">
-                <img
-                  src={item.product.image}
-                  alt={item.product.name}
-                  className="w-20 h-20 object-cover rounded-xl flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-semibold line-clamp-2 leading-snug">{item.product.name}</p>
-                  <p className="text-blue-400 text-sm font-bold mt-1">{item.product.price} TND</p>
-                  <div className="flex items-center gap-2 mt-3">
+            items.map((item) => (
+              <article key={item.product.id} className="glass-card flex gap-3 rounded-2xl p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(`/product/${item.product.id}`);
+                    setIsCartOpen(false);
+                  }}
+                  className="h-20 w-20 overflow-hidden rounded-xl"
+                >
+                  <OptimizedImage
+                    src={item.product.image}
+                    alt={item.product.name}
+                    className="h-full w-full object-cover"
+                    sizes="80px"
+                  />
+                </button>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="line-clamp-2 text-sm font-semibold text-primary">{item.product.name}</h3>
+                  <p className="mt-1 text-xs text-muted">{item.product.brand}</p>
+                  <p className="mt-1 text-sm font-bold text-primary">{formatPrice(item.product.price)}</p>
+
+                  <div className="mt-2 flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      className="w-7 h-7 bg-gray-800 hover:bg-gray-700 text-white rounded-lg flex items-center justify-center transition-colors"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-soft text-secondary"
                     >
-                      <Minus size={12} />
+                      <Minus size={14} />
                     </button>
-                    <span className="text-white text-sm font-bold w-6 text-center">{item.quantity}</span>
+                    <span className="w-6 text-center text-sm font-bold text-primary">{item.quantity}</span>
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="w-7 h-7 bg-gray-800 hover:bg-gray-700 text-white rounded-lg flex items-center justify-center transition-colors"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-soft text-secondary"
                     >
-                      <Plus size={12} />
+                      <Plus size={14} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => removeFromCart(item.product.id)}
-                      className="ml-auto p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-lg border border-soft text-rose-500"
                     >
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-              </div>
+              </article>
             ))
           )}
         </div>
 
-        {/* Footer */}
-        {items.length > 0 && (
-          <div className="p-6 border-t border-gray-800 space-y-4">
+        {items.length > 0 ? (
+          <div className="space-y-3 border-t border-soft px-4 py-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-400">Sous-total</span>
-              <span className="text-white font-bold text-lg">{totalPrice.toLocaleString()} TND</span>
+              <span className="text-sm text-muted">Sous-total</span>
+              <span className="text-lg font-bold text-primary">{formatPrice(totalPrice)}</span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Livraison</span>
-              <span className="text-green-400 font-medium">Calculée à la commande</span>
-            </div>
-            <button
-              onClick={() => { navigate('checkout'); setIsCartOpen(false); }}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 group"
+
+            <Link
+              to="/checkout"
+              onClick={() => setIsCartOpen(false)}
+              className="premium-btn flex w-full justify-center"
             >
               Commander maintenant
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => { navigate('cart'); setIsCartOpen(false); }}
-              className="w-full border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white font-medium py-3 rounded-2xl transition-colors text-sm"
+            </Link>
+
+            <Link
+              to="/cart"
+              onClick={() => setIsCartOpen(false)}
+              className="premium-btn-secondary flex w-full justify-center"
             >
-              Voir le panier complet
-            </button>
+              Voir le panier
+            </Link>
           </div>
-        )}
-      </div>
+        ) : null}
+      </aside>
     </>
   );
 }

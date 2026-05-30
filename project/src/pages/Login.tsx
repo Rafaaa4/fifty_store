@@ -19,7 +19,7 @@ export default function Login() {
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
               <p className="text-white font-bold">Support plus rapide</p>
-              <p className="text-gray-500 text-sm mt-1">Vos messages contact restent visibles côté admin.</p>
+              <p className="text-gray-500 text-sm mt-1">Vos messages contact restent visibles par l equipe Fifty Store.</p>
             </div>
           </div>
         </div>

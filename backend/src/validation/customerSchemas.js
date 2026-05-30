@@ -11,3 +11,7 @@ export const customerLoginSchema = z.object({
   email: z.string().trim().email().max(160).transform((email) => email.toLowerCase()),
   password: z.string().min(8).max(200),
 });
+
+export const customerGoogleSchema = z.object({
+  credential: z.string().trim().min(20),
+});
